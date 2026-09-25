@@ -55,7 +55,7 @@
           <input type="hidden" name="date" value="{{$.Today}}">
           <button type="submit" class="supp-chip{{if .TakenToday}} done{{end}}"
                   title="{{if .TakenToday}}Taken today. Click to log another dose{{else}}Log {{.Name}} for today{{end}}">
-            <span class="supp-check">{{if .TakenToday}}✓{{else}}＋{{end}}</span>
+            <span class="supp-check">{{if .TakenToday}}{{icon "check"}}{{else}}{{icon "plus"}}{{end}}</span>
             <span class="supp-chip-name">{{.Name}}</span>
             {{if gt .LastAmount 0.0}}<span class="supp-chip-dose">{{printf "%g" .LastAmount}} {{.LastUnit}}</span>{{end}}
           </button>
@@ -82,7 +82,7 @@
           <div class="dh-sets">
             {{range .Logs}}
               <span class="dh-set supp-log">{{.Name}}{{if gt .Amount 0.0}} <span class="dh-rpe">{{printf "%g" .Amount}} {{.Unit}}</span>{{end}}
-                <button class="supp-del" hx-post="/supplements/{{.ID}}/delete" hx-target="#supp-content" hx-swap="innerHTML" title="Delete">×</button>
+                <button class="supp-del" hx-post="/supplements/{{.ID}}/delete" hx-target="#supp-content" hx-swap="innerHTML" title="Delete" aria-label="Delete">{{icon "trash"}}</button>
               </span>
             {{end}}
           </div>

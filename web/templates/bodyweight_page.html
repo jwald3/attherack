@@ -46,7 +46,7 @@
           <span class="bw-row-wt">{{.Weight}}</span>
           <button class="btn tiny ghost bw-del"
                   hx-post="/bodyweight/{{.Date}}/delete" hx-target="#bw-content" hx-swap="innerHTML"
-                  title="Delete">×</button>
+                  title="Delete" aria-label="Delete">{{icon "trash"}}</button>
         </div>
       {{end}}
     </div>

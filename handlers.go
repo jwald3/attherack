@@ -870,7 +870,7 @@ func (app *App) handleSuggestExercise(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if agent == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte(`{"error":"Add your API key (⚙ Key) to use AI fill."}`))
+		w.Write([]byte(`{"error":"Add your API key (API key button on the Coach tab) to use AI fill."}`))
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -897,7 +897,7 @@ func (app *App) handleSuggestExercise(w http.ResponseWriter, r *http.Request) {
 func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	agent := app.getAgent()
 	if agent == nil {
-		app.writeChatBubble(w, "assistant", "Chat is disabled. Add your Anthropic API key (⚙ Key) to enable Claude.", false)
+		app.writeChatBubble(w, "assistant", "Chat is disabled. Add your Anthropic API key (API key button, bottom left) to enable Claude.", false)
 		return
 	}
 	if err := r.ParseForm(); err != nil {

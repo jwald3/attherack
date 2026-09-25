@@ -5,7 +5,7 @@
       <h2 class="drawer-title">{{.Name}}</h2>
       {{if .Sessions}}<div class="drawer-meta-note">{{.FirstDate}} → {{.LastDate}}</div>{{end}}
     </div>
-    <button class="btn ghost small" onclick="closeDrawer()" title="Close">✕</button>
+    <button class="btn ghost small" onclick="closeDrawer()" title="Close" aria-label="Close">{{icon "x"}}</button>
   </div>
 
   {{if .Sessions}}

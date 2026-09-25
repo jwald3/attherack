@@ -2,11 +2,11 @@
   <main class="coach">
     <!-- Sidebar: conversations -->
     <aside class="coach-side" id="coach-side">
-      <a href="/" class="btn new-chat">＋ New chat</a>
+      <a href="/" class="btn new-chat">{{icon "plus"}} New chat</a>
       {{template "thread_list.html" .ThreadList}}
       <div class="coach-side-foot">
         <button type="button" class="btn ghost small side-key" title="API key & settings"
-                onclick="document.getElementById('settings-wrap').classList.toggle('open')">⚙ API key</button>
+                onclick="document.getElementById('settings-wrap').classList.toggle('open')">{{icon "key"}} API key</button>
         <div id="settings-wrap"{{if not .ChatEnabled}} class="open"{{end}}>
           {{template "settings.html" .Settings}}
         </div>
@@ -17,7 +17,7 @@
     <section class="coach-main">
       <div class="coach-head">
         <button type="button" class="btn ghost small side-toggle" title="Conversations"
-                onclick="document.getElementById('coach-side').classList.toggle('open')">☰</button>
+                onclick="document.getElementById('coach-side').classList.toggle('open')" aria-label="Conversations">{{icon "menu"}}</button>
         <h1 class="coach-title">{{if .Thread}}{{.Thread.Title}}{{else}}New chat{{end}}</h1>
         {{if not .ChatEnabled}}<span class="tag off">key needed</span>{{end}}
       </div>
@@ -39,7 +39,7 @@
                   <button type="button" class="starter">What should I train next?</button>
                 </div>
               {{else}}
-                <div class="chat-empty-note">Add your Anthropic API key (⚙ API key, bottom left) to chat with your coach.</div>
+                <div class="chat-empty-note">Add your Anthropic API key (the API key button, bottom left) to chat with your coach.</div>
               {{end}}
             </div>
           {{end}}
@@ -52,7 +52,7 @@
               {{if not .ChatEnabled}}data-disabled="1"{{end}}>
           <input type="hidden" name="thread_id" id="thread-id" value="{{if .Thread}}{{.Thread.ID}}{{end}}">
           <textarea name="message" id="chat-input" rows="1" placeholder="Message your coach…" autocomplete="off" {{if not .ChatEnabled}}disabled{{end}} autofocus></textarea>
-          <button type="submit" class="btn primary send" title="Send (Enter)" {{if not .ChatEnabled}}disabled{{end}}>↑</button>
+          <button type="submit" class="btn primary send" title="Send (Enter)" aria-label="Send" {{if not .ChatEnabled}}disabled{{end}}>{{icon "arrow-up"}}</button>
         </form>
         <div class="composer-hint">Enter to send · Shift+Enter for a new line</div>
       </div>
@@ -68,11 +68,11 @@
       <a href="/c/{{.ID}}" class="thread-link" title="{{.Title}}">{{.Title}}</a>
       <div class="thread-actions">
         <button type="button" class="btn tiny ghost thread-rename" title="Rename"
-                data-id="{{.ID}}" data-title="{{.Title}}" data-current="{{$active}}">✎</button>
+                data-id="{{.ID}}" data-title="{{.Title}}" data-current="{{$active}}" aria-label="Rename">{{icon "pencil"}}</button>
         <button type="button" class="btn tiny ghost" title="Delete"
                 hx-post="/threads/{{.ID}}/delete" hx-vals='{"current": "{{$active}}"}'
                 hx-target="#thread-list" hx-swap="outerHTML"
-                hx-confirm="Delete this conversation?">×</button>
+                hx-confirm="Delete this conversation?" aria-label="Delete">{{icon "trash"}}</button>
       </div>
     </div>
   {{else}}
