@@ -1,0 +1,24 @@
+# build output
+attherack
+attherack.exe
+/dist/
+
+# local database (created at runtime) and any copies/backups of it.
+# These hold your training history and possibly your saved API key; never commit them.
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.bak
+*.sqlite
+*.sqlite3
+
+# env
+.env
+
+# os / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/

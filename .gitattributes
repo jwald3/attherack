@@ -1,0 +1,9 @@
+# Normalize text files to LF in the repo and on checkout, on every OS.
+* text=auto eol=lf
+
+# Binary / generated assets: never touch line endings or diff them as text.
+*.png binary
+*.jpg binary
+*.ico binary
+web/static/htmx.min.js -diff linguist-vendored
+data/exercises.json -diff linguist-vendored

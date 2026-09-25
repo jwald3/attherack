@@ -1,0 +1,119 @@
+{{define "training.html"}}{{template "head" .}}
+  <main class="layout layout-2">
+    <!-- Left: log + add form -->
+    <section class="col col-log">
+      <div class="panel">
+        <h2 class="panel-title">Log a set</h2>
+        <form class="addset" hx-post="/sets" hx-target="#log" hx-swap="innerHTML">
+          <input type="text" name="exercise" placeholder="Exercise" list="exercise-names" autocomplete="off" required>
+          <div class="addset-row">
+            <input type="number" name="weight" placeholder="Weight" step="any" inputmode="decimal">
+            <input type="number" name="reps" placeholder="Reps" inputmode="numeric">
+            <input type="number" name="rpe" placeholder="RPE" step="0.5" min="1" max="10" inputmode="decimal">
+          </div>
+          <div class="addset-row">
+            <input type="date" name="date" value="{{.Today}}">
+            <button type="submit" class="btn primary">Add set</button>
+          </div>
+        </form>
+        <datalist id="exercise-names"></datalist>
+      </div>
+
+      <div class="panel grow">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">History</h2>
+        </div>
+        <div id="log" hx-get="/log" hx-trigger="refresh-log from:body">
+          {{template "log.html" .Workouts}}
+        </div>
+      </div>
+    </section>
+
+    <!-- Middle: exercise browser -->
+    <section class="col col-ex">
+      <div class="panel grow">
+        <h2 class="panel-title">Exercise library</h2>
+        <form class="exsearch" id="exsearch"
+              hx-get="/exercises" hx-target="#exercise-results" hx-swap="innerHTML"
+              hx-trigger="input changed delay:250ms, submit, refresh-search from:body">
+          <input type="search" name="query" id="ex-q" placeholder="Search 870+ exercises…" autocomplete="off">
+          <div class="exsearch-row">
+            <input type="text" name="muscle" id="ex-muscle" placeholder="Muscle (e.g. lats)" autocomplete="off">
+            <input type="text" name="equipment" id="ex-equipment" placeholder="Equipment" autocomplete="off">
+          </div>
+        </form>
+
+        <details class="facets" open>
+          <summary>Suggestions</summary>
+          <div class="facet-group">
+            <span class="facet-label">Muscle</span>
+            <div class="chips">
+              {{range .Muscles}}<button type="button" class="chip pick muscle" data-field="muscle" data-val="{{.Value}}">{{.Value}} <span class="chip-n">{{.Count}}</span></button>{{end}}
+            </div>
+          </div>
+          <div class="facet-group">
+            <span class="facet-label">Equipment</span>
+            <div class="chips">
+              {{range .Equipment}}<button type="button" class="chip pick equip" data-field="equipment" data-val="{{.Value}}">{{.Value}} <span class="chip-n">{{.Count}}</span></button>{{end}}
+            </div>
+          </div>
+          <button type="button" id="facet-clear" class="btn ghost tiny facet-clear" hidden>× clear filters</button>
+        </details>
+
+        <div id="exercise-results" class="ex-results">
+          {{template "exercises.html" .InitialExercises}}
+        </div>
+
+        <datalist id="muscle-options">
+          {{range .Muscles}}<option value="{{.Value}}"></option>{{end}}
+        </datalist>
+        <datalist id="equipment-options">
+          {{range .Equipment}}<option value="{{.Value}}"></option>{{end}}
+        </datalist>
+
+        <details class="ex-add-box">
+          <summary>+ Add a custom exercise</summary>
+          <form class="ex-add-form"
+                hx-post="/exercises" hx-target="#ex-add-result" hx-swap="innerHTML">
+            <div class="ex-add-name-row">
+              <input type="text" name="name" id="add-name" placeholder="Name (e.g. Parallel Grip Lat Pulldown)" autocomplete="off" required>
+              <button type="button" id="ai-fill" class="btn small ai-btn" title="Let AI fill the fields from the name">✨ AI</button>
+            </div>
+            <div class="ex-add-field">
+              <input type="text" name="primary_muscles" id="add-primary" placeholder="Primary muscles (comma sep)" list="muscle-options" autocomplete="off">
+              <div class="suggest-chips">
+                {{range .Muscles}}<button type="button" class="mini-chip" data-target="add-primary" data-val="{{.Value}}">{{.Value}}</button>{{end}}
+              </div>
+            </div>
+            <div class="ex-add-row">
+              <input type="text" name="equipment" placeholder="Equipment" list="equipment-options" autocomplete="off">
+              <select name="category" title="Category">
+                <option value="strength" selected>strength</option>
+                <option value="stretching">stretching</option>
+                <option value="plyometrics">plyometrics</option>
+                <option value="cardio">cardio</option>
+                <option value="strongman">strongman</option>
+                <option value="powerlifting">powerlifting</option>
+              </select>
+            </div>
+            <div class="ex-add-field">
+              <input type="text" name="secondary_muscles" id="add-secondary" placeholder="Secondary muscles (optional)" list="muscle-options" autocomplete="off">
+              <div class="suggest-chips">
+                {{range .Muscles}}<button type="button" class="mini-chip" data-target="add-secondary" data-val="{{.Value}}">{{.Value}}</button>{{end}}
+              </div>
+            </div>
+            <div class="ex-add-row">
+              <button type="submit" class="btn primary">Add exercise</button>
+            </div>
+          </form>
+          <div id="ex-add-result"></div>
+        </details>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Exercise history drawer (populated on demand) -->
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden onclick="closeDrawer()"></div>
+  <aside id="drawer" class="drawer" hidden aria-label="Exercise history"></aside>
+{{template "foot" .}}{{end}}

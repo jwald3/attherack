@@ -1,0 +1,66 @@
+{{define "cardio_page.html"}}{{template "head" .}}
+  <main class="bw-page">
+    <div class="bw-layout">
+      <section class="panel">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Cardio</h2>
+          <form class="cardio-form" hx-post="/cardio" hx-target="#cardio-content" hx-swap="innerHTML">
+            <input type="text" name="type" placeholder="Cardio type" list="cardio-types" autocomplete="off" required>
+            <input type="number" name="minutes" placeholder="Min" step="any" inputmode="decimal">
+            <input type="number" name="miles" placeholder="Miles" step="any" inputmode="decimal">
+            <input type="date" name="date" value="{{.Today}}">
+            <button type="submit" class="btn primary small">Log</button>
+          </form>
+          <datalist id="cardio-types">
+            <option value="Walking"></option>
+            <option value="Elliptical"></option>
+            <option value="Running"></option>
+            <option value="Cycling"></option>
+            <option value="Rowing"></option>
+            <option value="Stair Climber"></option>
+            <option value="Swimming"></option>
+            <option value="Incline Treadmill"></option>
+          </datalist>
+        </div>
+        <div id="cardio-content">
+          {{template "cardio_content.html" .}}
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Cardio-type history drawer (populated on demand) -->
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden onclick="closeDrawer()"></div>
+  <aside id="drawer" class="drawer" hidden aria-label="Cardio history"></aside>
+{{template "foot" .}}{{end}}
+
+{{define "cardio_content.html"}}
+  <div class="bw-stats cardio-stats">
+    <div class="stat"><div class="stat-label">This week</div><div class="stat-val">{{printf "%.1f" .WeekMiles}}<span class="stat-unit">mi</span></div></div>
+    <div class="stat"><div class="stat-label">This week</div><div class="stat-val">{{.WeekMinutes}}<span class="stat-unit">min</span></div></div>
+    <div class="stat"><div class="stat-label">Sessions/wk</div><div class="stat-val">{{.WeekCount}}</div></div>
+    <div class="stat"><div class="stat-label">30-day mi</div><div class="stat-val">{{printf "%.1f" .MonthMiles}}</div></div>
+    <div class="stat"><div class="stat-label">30-day min</div><div class="stat-val">{{.MonthMinutes}}</div></div>
+  </div>
+
+  <h3 class="bw-list-title">History</h3>
+  {{if .Sessions}}
+    <div class="cardio-list">
+      {{range .Sessions}}
+        <div class="cardio-row">
+          <span class="cardio-date">{{.Date}}</span>
+          <span class="cardio-type"><button type="button" class="ex-link cardio-link" data-cardio-type="{{.Type}}" title="View {{.Type}} history">{{.Type}}</button></span>
+          <span class="cardio-detail">
+            {{if gt .DistanceMiles 0.0}}{{printf "%.2f" .DistanceMiles}} mi{{end}}
+            {{if gt .DurationSeconds 0}}<span class="cardio-dur">{{dur .DurationSeconds}}</span>{{end}}
+          </span>
+          <button class="btn tiny ghost cardio-del"
+                  hx-post="/cardio/{{.ID}}/delete" hx-target="#cardio-content" hx-swap="innerHTML"
+                  title="Delete">×</button>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="bw-empty-big">No cardio logged yet. Add a session above.</div>
+  {{end}}
+{{end}}

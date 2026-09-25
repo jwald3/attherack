@@ -1,0 +1,17 @@
+{{define "exercises.html"}}
+{{if not .}}
+  <div class="empty small">Search by name, muscle, or equipment.</div>
+{{else}}
+  {{range .}}
+    <div class="ex-card{{if .Custom}} custom{{end}}" data-name="{{.Name}}">
+      <div class="ex-name"><button type="button" class="ex-link" data-exercise-name="{{.Name}}">{{.Name}}</button></div>
+      <div class="ex-meta">
+        {{range .PrimaryMuscles}}<span class="chip muscle">{{.}}</span>{{end}}
+        {{with deref .Equipment}}<span class="chip equip">{{.}}</span>{{end}}
+        {{if .Custom}}<span class="chip custom-tag">custom</span>{{end}}
+      </div>
+      <button class="btn tiny ex-add" data-exercise="{{.Name}}" title="Fill the log form">+ log</button>
+    </div>
+  {{end}}
+{{end}}
+{{end}}

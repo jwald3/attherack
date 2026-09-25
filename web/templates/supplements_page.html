@@ -1,0 +1,95 @@
+{{define "supplements_page.html"}}{{template "head" .}}
+  <main class="bw-page">
+    <div class="bw-layout">
+      <section class="panel">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Supplements</h2>
+          <form class="cardio-form supp-form" hx-post="/supplements" hx-target="#supp-content" hx-swap="innerHTML"
+                hx-on::after-request="if(event.detail.successful){this.querySelector('[name=name]').value='';this.querySelector('[name=amount]').value=''}">
+            <input type="text" name="name" placeholder="Supplement" list="supp-names" autocomplete="off" required>
+            <input type="number" name="amount" placeholder="Amount" step="any" min="0" inputmode="decimal" class="supp-amount">
+            <input type="text" name="unit" placeholder="Unit" list="supp-units" autocomplete="off" class="supp-unit">
+            <input type="date" name="date" value="{{.Today}}">
+            <button type="submit" class="btn primary small">Log</button>
+          </form>
+          <datalist id="supp-units">
+            <option value="g"></option>
+            <option value="mg"></option>
+            <option value="mcg"></option>
+            <option value="IU"></option>
+            <option value="capsules"></option>
+            <option value="tablets"></option>
+            <option value="scoops"></option>
+            <option value="ml"></option>
+          </datalist>
+        </div>
+        <div id="supp-content">
+          {{template "supplements_content.html" .}}
+        </div>
+      </section>
+    </div>
+  </main>
+{{template "foot" .}}{{end}}
+
+{{define "supplements_content.html"}}
+  <datalist id="supp-names">
+    {{range .Regulars}}<option value="{{.Name}}"></option>{{end}}
+    <option value="Creatine"></option>
+    <option value="Protein powder"></option>
+    <option value="Vitamin D"></option>
+    <option value="Fish oil"></option>
+    <option value="Magnesium"></option>
+    <option value="Multivitamin"></option>
+    <option value="Caffeine"></option>
+    <option value="Electrolytes"></option>
+  </datalist>
+
+  {{if .Regulars}}
+    <h3 class="bw-list-title">Today <span class="supp-today-count">{{.TodayCount}} of {{len .Regulars}} taken</span></h3>
+    <div class="supp-quick">
+      {{range .Regulars}}
+        <form hx-post="/supplements" hx-target="#supp-content" hx-swap="innerHTML">
+          <input type="hidden" name="name" value="{{.Name}}">
+          <input type="hidden" name="amount" value="{{.LastAmount}}">
+          <input type="hidden" name="unit" value="{{.LastUnit}}">
+          <input type="hidden" name="date" value="{{$.Today}}">
+          <button type="submit" class="supp-chip{{if .TakenToday}} done{{end}}"
+                  title="{{if .TakenToday}}Taken today. Click to log another dose{{else}}Log {{.Name}} for today{{end}}">
+            <span class="supp-check">{{if .TakenToday}}✓{{else}}＋{{end}}</span>
+            <span class="supp-chip-name">{{.Name}}</span>
+            {{if gt .LastAmount 0.0}}<span class="supp-chip-dose">{{printf "%g" .LastAmount}} {{.LastUnit}}</span>{{end}}
+          </button>
+        </form>
+      {{end}}
+    </div>
+
+    <h3 class="bw-list-title">Last 30 days</h3>
+    <div class="supp-consistency">
+      {{range .Regulars}}
+        <div class="supp-cons-row">
+          <span class="supp-cons-name">{{.Name}}</span>
+          <span class="supp-bar"><span style="width: {{pct .DaysTaken 30}}%"></span></span>
+          <span class="supp-cons-n">{{.DaysTaken}}/30 days</span>
+        </div>
+      {{end}}
+    </div>
+
+    <h3 class="bw-list-title">History</h3>
+    <div class="drawer-history">
+      {{range .Days}}
+        <div class="dh-day">
+          <div class="dh-date">{{.Date}}</div>
+          <div class="dh-sets">
+            {{range .Logs}}
+              <span class="dh-set supp-log">{{.Name}}{{if gt .Amount 0.0}} <span class="dh-rpe">{{printf "%g" .Amount}} {{.Unit}}</span>{{end}}
+                <button class="supp-del" hx-post="/supplements/{{.ID}}/delete" hx-target="#supp-content" hx-swap="innerHTML" title="Delete">×</button>
+              </span>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="bw-empty-big">No supplements logged yet. Log one above, or tell your coach “took 5g creatine”.<br>After your first log, supplements show up here for one-click logging each day.</div>
+  {{end}}
+{{end}}

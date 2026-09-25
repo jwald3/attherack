@@ -1,0 +1,47 @@
+{{define "cardio_detail.html"}}
+<div class="drawer-inner">
+  <div class="drawer-head">
+    <div>
+      <h2 class="drawer-title">{{.Name}}</h2>
+      {{if .Sessions}}<div class="drawer-meta-note">{{.FirstDate}} → {{.LastDate}}</div>{{end}}
+    </div>
+    <button class="btn ghost small" onclick="closeDrawer()" title="Close">✕</button>
+  </div>
+
+  {{if .Sessions}}
+    <div class="drawer-stats">
+      <div class="stat"><div class="stat-label">Sessions</div><div class="stat-val">{{len .Sessions}}</div></div>
+      {{if gt .TotalMiles 0.0}}<div class="stat"><div class="stat-label">Total mi</div><div class="stat-val">{{printf "%.1f" .TotalMiles}}</div></div>{{end}}
+      <div class="stat"><div class="stat-label">Total time</div><div class="stat-val">{{dur .TotalSeconds}}</div></div>
+      {{if .AvgPaceSec}}<div class="stat"><div class="stat-label">Avg pace</div><div class="stat-val">{{hms .AvgPaceSec}}<span class="stat-unit">/mi</span></div></div>{{end}}
+      {{if .BestPaceSec}}<div class="stat"><div class="stat-label">Best pace</div><div class="stat-val">{{hms .BestPaceSec}}<span class="stat-unit">/mi</span></div></div>{{end}}
+      {{if gt .LongestMiles 0.0}}<div class="stat"><div class="stat-label">Longest</div><div class="stat-val">{{printf "%.2f" .LongestMiles}}<span class="stat-unit">mi</span></div></div>{{end}}
+      {{if .LongestSecond}}<div class="stat"><div class="stat-label">Longest time</div><div class="stat-val">{{dur .LongestSecond}}</div></div>{{end}}
+    </div>
+
+    {{if .Chart.HasData}}
+      <div class="drawer-chart">
+        <div class="drawer-chart-label">{{.ChartLabel}} · {{.ChartFirst}} → <span class="{{if ne .Chart.Change 0.0}}{{if .Improved}}up-good{{else}}down-bad{{end}}{{end}}">{{.ChartLast}}</span></div>
+        {{.Chart.SVG}}
+      </div>
+    {{end}}
+
+    <div class="ch-table">
+      <div class="ch-row ch-head">
+        <span>Date</span><span>Distance</span><span>Time</span><span>Pace</span><span>Speed</span>
+      </div>
+      {{range .Sessions}}
+        <div class="ch-row">
+          <span class="ch-date">{{.Date}}</span>
+          <span>{{if gt .DistanceMiles 0.0}}{{printf "%.2f" .DistanceMiles}} mi{{else}}—{{end}}</span>
+          <span>{{hms .DurationSeconds}}</span>
+          <span>{{with pace .DurationSeconds .DistanceMiles}}{{.}}{{else}}—{{end}}</span>
+          <span class="ch-dim">{{with mph .DurationSeconds .DistanceMiles}}{{.}}{{else}}—{{end}}</span>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="drawer-empty">No {{.Name}} sessions logged yet.</div>
+  {{end}}
+</div>
+{{end}}
