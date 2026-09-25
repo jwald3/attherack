@@ -29,7 +29,7 @@ optional Anthropic API. Data lives in a local SQLite file.
 | Tab | What it does |
 | --- | --- |
 | **Coach** (home) | Chat with Claude, organized into conversations like the Claude app: a sidebar of threads, automatic titles, rename and delete. The coach reads and writes all of your data through tools, so answers use real numbers. |
-| **Training** | Log sets (exercise, weight, reps, RPE); they're grouped into dated workouts. Search a library of ~870 exercises by name, muscle or equipment, or add your own (the ✨ AI button fills in muscles and equipment from the name). Click any exercise for its history: best set, estimated 1RM, progression chart, every set by date. |
+| **Training** | Log sets (exercise, weight, reps, RPE); they're grouped into dated workouts. Search a library of ~870 exercises by name, muscle or equipment, or add your own (the **AI** button fills in muscles and equipment from the name). Click any exercise for its history: best set, estimated 1RM, progression chart, every set by date. |
 | **Cardio** | Log sessions (type, minutes, miles) with weekly and 30-day totals. Click a type (e.g. Running) for its history: distance, time, pace and speed per session, plus best and average pace and a pace chart. |
 | **Bodyweight** | Weigh-ins with a trend chart and start/current/change/min/max stats. |
 | **Diet** | Log what you ate. A name is enough; notes (portion, brand) and macros (calories, protein, carbs, fat) are optional. Days show macro totals when you've entered them. |
@@ -51,11 +51,11 @@ go run .
 
 Then open <http://localhost:8080>.
 
-To turn on the coach, click **⚙ API key** at the bottom of the Coach sidebar
+To turn on the coach, click **API key** at the bottom of the Coach sidebar
 and paste an Anthropic API key (get one at
 [console.anthropic.com](https://console.anthropic.com)). It's saved in your
 local database and takes effect immediately. Everything except the coach and
-the ✨ AI button works without a key.
+the **AI** button works without a key.
 
 To build a standalone binary:
 
@@ -111,7 +111,7 @@ latest weigh-in, today's food and supplements) is added to the system prompt,
 so the coach has context before it calls any tool.
 
 The cheaper `claude-haiku-4-5` model writes conversation titles and powers the
-✨ AI button on the custom-exercise form.
+**AI** button on the custom-exercise form.
 
 Your API key stays on your machine. The only data that leaves it is what's
 sent to the Anthropic API during a chat: your messages, plus whatever the

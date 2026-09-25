@@ -157,7 +157,7 @@
     }
   });
 
-  // ✨ AI fill: infer muscles/equipment/category from the exercise name
+  // AI fill: infer muscles/equipment/category from the exercise name
   // using a cheap model, then populate the add-exercise form.
   document.addEventListener("click", async (e) => {
     if (e.target.id !== "ai-fill") return;
@@ -169,9 +169,8 @@
       $("#add-name")?.focus();
       return;
     }
-    const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "✨ …";
+    btn.classList.add("loading");
     if (result) result.innerHTML = '<div class="ex-add-msg">Thinking…</div>';
     try {
       const res = await fetch("/exercises/suggest", {
@@ -197,7 +196,7 @@
       if (result) result.innerHTML = '<div class="ex-add-msg err">AI fill failed.</div>';
     } finally {
       btn.disabled = false;
-      btn.textContent = original;
+      btn.classList.remove("loading");
     }
   });
 

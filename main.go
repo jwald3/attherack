@@ -185,6 +185,7 @@ func main() {
 		"hms":   fmtClock,
 		"mph":   fmtSpeed,
 		"pct":   percent,
+		"icon":  icon,
 	}).ParseFS(templateFS, "web/templates/*.html")
 	if err != nil {
 		log.Fatalf("parse templates: %v", err)

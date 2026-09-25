@@ -16,6 +16,11 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+/* ---- icons (inline SVG, see icons.go) ---- */
+.icon { width: 1.1em; height: 1.1em; flex: none; display: inline-block; vertical-align: -0.2em; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 html, body {
   margin: 0;
@@ -36,8 +41,9 @@ html, body {
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: baseline; gap: 8px; }
-.brand-mark { color: var(--accent); font-size: 18px; transform: translateY(1px); }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-mark { color: var(--accent); font-size: 20px; display: inline-flex; }
+.brand-mark .icon { width: 1em; height: 1em; }
 .brand-name { font-weight: 700; letter-spacing: -0.02em; font-size: 16px; white-space: nowrap; }
 .topbar-sub { color: var(--text-faint); font-size: 12px; font-family: var(--mono); margin-left: auto; }
 
@@ -112,6 +118,10 @@ input::placeholder { color: var(--text-faint); }
   font-weight: 500;
   white-space: nowrap;
   transition: background .12s, border-color .12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .btn:hover { background: #232b36; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a0d08; font-weight: 600; }
@@ -242,7 +252,7 @@ input::placeholder { color: var(--text-faint); }
 .supp-bar span { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
 .supp-cons-n { font-family: var(--mono); font-size: 12px; color: var(--text-dim); text-align: right; }
 .supp-log { display: inline-flex; align-items: center; gap: 4px; }
-.supp-del { background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 0 0 0 2px; font-size: 13px; opacity: 0; }
+.supp-del { background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 0 0 0 2px; font-size: 12px; opacity: 0; display: inline-flex; }
 .supp-log:hover .supp-del { opacity: 1; }
 .supp-del:hover { color: var(--accent); }
 
@@ -355,6 +365,8 @@ select:focus { border-color: var(--accent-dim); }
 .ai-btn { flex: none; background: linear-gradient(135deg, #2e2636, #22303a); border-color: #4a3d5c; color: #d8bced; }
 .ai-btn:hover:not(:disabled) { background: linear-gradient(135deg, #3a2f45, #2a3d49); }
 .ai-btn:disabled { opacity: 0.6; cursor: default; }
+.ai-btn .icon-loader, .ai-btn.loading .icon-sparkles { display: none; }
+.ai-btn.loading .icon-loader { display: inline-block; animation: spin .8s linear infinite; }
 .ex-add-field { display: flex; flex-direction: column; gap: 6px; }
 .suggest-chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 48px; overflow-y: auto; }
 .mini-chip {
@@ -420,7 +432,7 @@ select:focus { border-color: var(--accent-dim); }
   display: flex; flex-direction: column; gap: 10px;
   padding: 12px; min-height: 0;
 }
-.new-chat { display: block; text-align: center; text-decoration: none; }
+.new-chat { display: flex; text-decoration: none; }
 .thread-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; min-height: 0; margin: 0 -4px; padding: 0 4px; }
 .thread { display: flex; align-items: center; border-radius: 7px; }
 .thread:hover { background: var(--bg-elev); }
@@ -437,7 +449,7 @@ select:focus { border-color: var(--accent-dim); }
 .thread-actions .btn:hover { color: var(--text); }
 .thread-empty { color: var(--text-faint); font-size: 12px; padding: 8px 10px; }
 .coach-side-foot { border-top: 1px solid var(--border-soft); padding-top: 10px; }
-.side-key { width: 100%; text-align: left; }
+.side-key { width: 100%; justify-content: flex-start; }
 .coach-side-foot #settings-wrap { margin: 8px 0 0; }
 
 .coach-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
@@ -482,7 +494,8 @@ select:focus { border-color: var(--accent-dim); }
   font: inherit; font-size: 14.5px; line-height: 1.5; padding: 6px 0; max-height: 220px;
 }
 .composer textarea::placeholder { color: var(--text-faint); }
-.composer .send { width: 34px; height: 34px; padding: 0; border-radius: 9px; font-size: 16px; }
+.composer .send { width: 34px; height: 34px; padding: 0; border-radius: 9px; font-size: 17px; }
+.composer .send .icon { stroke-width: 2.5; }
 .composer .send:disabled, .composer textarea:disabled { opacity: .5; cursor: default; }
 .composer-hint { max-width: 760px; margin: 6px auto 0; font-size: 11px; color: var(--text-faint); text-align: center; }
 

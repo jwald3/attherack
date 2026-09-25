@@ -18,7 +18,7 @@
             <td class="s-del">
               <button class="btn tiny ghost"
                       hx-post="/sets/{{.ID}}/delete" hx-target="#log" hx-swap="innerHTML"
-                      title="Delete set">×</button>
+                      title="Delete set" aria-label="Delete set">{{icon "trash"}}</button>
             </td>
           </tr>
           {{end}}

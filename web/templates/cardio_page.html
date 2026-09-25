@@ -56,7 +56,7 @@
           </span>
           <button class="btn tiny ghost cardio-del"
                   hx-post="/cardio/{{.ID}}/delete" hx-target="#cardio-content" hx-swap="innerHTML"
-                  title="Delete">×</button>
+                  title="Delete" aria-label="Delete">{{icon "trash"}}</button>
         </div>
       {{end}}
     </div>

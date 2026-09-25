@@ -68,7 +68,7 @@
             {{end}}
             <button class="btn tiny ghost food-del"
                     hx-post="/diet/{{.ID}}/delete" hx-target="#diet-content" hx-swap="innerHTML"
-                    title="Delete">×</button>
+                    title="Delete" aria-label="Delete">{{icon "trash"}}</button>
           </div>
         {{end}}
       </div>

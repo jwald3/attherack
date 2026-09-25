@@ -57,7 +57,7 @@
               {{range .Equipment}}<button type="button" class="chip pick equip" data-field="equipment" data-val="{{.Value}}">{{.Value}} <span class="chip-n">{{.Count}}</span></button>{{end}}
             </div>
           </div>
-          <button type="button" id="facet-clear" class="btn ghost tiny facet-clear" hidden>× clear filters</button>
+          <button type="button" id="facet-clear" class="btn ghost tiny facet-clear" hidden>{{icon "x"}} Clear filters</button>
         </details>
 
         <div id="exercise-results" class="ex-results">
@@ -77,7 +77,7 @@
                 hx-post="/exercises" hx-target="#ex-add-result" hx-swap="innerHTML">
             <div class="ex-add-name-row">
               <input type="text" name="name" id="add-name" placeholder="Name (e.g. Parallel Grip Lat Pulldown)" autocomplete="off" required>
-              <button type="button" id="ai-fill" class="btn small ai-btn" title="Let AI fill the fields from the name">✨ AI</button>
+              <button type="button" id="ai-fill" class="btn small ai-btn" title="Let AI fill the fields from the name">{{icon "sparkles"}}{{icon "loader"}} <span class="ai-label">AI</span></button>
             </div>
             <div class="ex-add-field">
               <input type="text" name="primary_muscles" id="add-primary" placeholder="Primary muscles (comma sep)" list="muscle-options" autocomplete="off">
