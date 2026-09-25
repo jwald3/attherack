@@ -1,0 +1,56 @@
+{{define "bodyweight_page.html"}}{{template "head" .}}
+  <main class="bw-page">
+    <div class="bw-layout">
+      <section class="panel bw-chart-panel">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Bodyweight trend</h2>
+          <form class="bw-form inline" hx-post="/bodyweight" hx-target="#bw-content" hx-swap="innerHTML">
+            <input type="number" name="weight" placeholder="Weight" step="any" inputmode="decimal" required>
+            <input type="date" name="date" value="{{.Today}}">
+            <button type="submit" class="btn primary small">Log</button>
+          </form>
+        </div>
+        <div id="bw-content">
+          {{template "bodyweight_content.html" .}}
+        </div>
+      </section>
+    </div>
+  </main>
+{{template "foot" .}}{{end}}
+
+{{define "bodyweight_content.html"}}
+  {{if .Latest}}<div class="bw-hero-row"><span class="bw-hero">{{.Latest.Weight}}</span><span class="bw-hero-unit">as of {{.Latest.Date}}</span></div>{{end}}
+
+  {{if .Chart.HasData}}
+    <div class="bw-chart-wrap">
+      {{.Chart.SVG}}
+    </div>
+    <div class="bw-stats">
+      <div class="stat"><div class="stat-label">Start</div><div class="stat-val">{{printf "%g" .Chart.First}}</div></div>
+      <div class="stat"><div class="stat-label">Current</div><div class="stat-val">{{printf "%g" .Chart.Last}}</div></div>
+      <div class="stat"><div class="stat-label">Change</div><div class="stat-val {{.ChangeDir}}">{{if eq .ChangeDir "up"}}+{{end}}{{printf "%.1f" .Chart.Change}}</div></div>
+      <div class="stat"><div class="stat-label">Lowest</div><div class="stat-val">{{printf "%g" .Chart.Min}}</div></div>
+      <div class="stat"><div class="stat-label">Highest</div><div class="stat-val">{{printf "%g" .Chart.Max}}</div></div>
+      <div class="stat"><div class="stat-label">Entries</div><div class="stat-val">{{.Chart.Count}}</div></div>
+    </div>
+  {{else}}
+    <div class="bw-empty-big">No bodyweight logged yet. Add your first entry above to start the chart.</div>
+  {{end}}
+
+  <h3 class="bw-list-title">History</h3>
+  {{if .Entries}}
+    <div class="bw-list tall">
+      {{range .Entries}}
+        <div class="bw-row">
+          <span class="bw-row-date">{{.Date}}</span>
+          <span class="bw-row-wt">{{.Weight}}</span>
+          <button class="btn tiny ghost bw-del"
+                  hx-post="/bodyweight/{{.Date}}/delete" hx-target="#bw-content" hx-swap="innerHTML"
+                  title="Delete">×</button>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="empty small">No entries yet.</div>
+  {{end}}
+{{end}}

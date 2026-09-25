@@ -1,0 +1,82 @@
+{{define "coach.html"}}{{template "head" .}}
+  <main class="coach">
+    <!-- Sidebar: conversations -->
+    <aside class="coach-side" id="coach-side">
+      <a href="/" class="btn new-chat">＋ New chat</a>
+      {{template "thread_list.html" .ThreadList}}
+      <div class="coach-side-foot">
+        <button type="button" class="btn ghost small side-key" title="API key & settings"
+                onclick="document.getElementById('settings-wrap').classList.toggle('open')">⚙ API key</button>
+        <div id="settings-wrap"{{if not .ChatEnabled}} class="open"{{end}}>
+          {{template "settings.html" .Settings}}
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main: the conversation -->
+    <section class="coach-main">
+      <div class="coach-head">
+        <button type="button" class="btn ghost small side-toggle" title="Conversations"
+                onclick="document.getElementById('coach-side').classList.toggle('open')">☰</button>
+        <h1 class="coach-title">{{if .Thread}}{{.Thread.Title}}{{else}}New chat{{end}}</h1>
+        {{if not .ChatEnabled}}<span class="tag off">key needed</span>{{end}}
+      </div>
+
+      <div id="chat-scroll" class="chat-scroll">
+        <div class="chat-col" id="chat-col">
+          {{range .Messages}}
+            <div class="bubble {{.Role}} md">{{if eq .Role "assistant"}}{{.Content | md}}{{else}}{{.Content | nl2br}}{{end}}</div>
+          {{else}}
+            <div class="chat-empty">
+              <div class="chat-hello">What are we working on today?</div>
+              {{if .ChatEnabled}}
+                <div class="starters">
+                  <button type="button" class="starter">Log 3×5 squats at 225 for today</button>
+                  <button type="button" class="starter">How's my bench trending?</button>
+                  <button type="button" class="starter">Plan a pull day for me</button>
+                  <button type="button" class="starter">How has my cardio been this month?</button>
+                  <button type="button" class="starter">Am I on track with my bodyweight?</button>
+                  <button type="button" class="starter">What should I train next?</button>
+                </div>
+              {{else}}
+                <div class="chat-empty-note">Add your Anthropic API key (⚙ API key, bottom left) to chat with your coach.</div>
+              {{end}}
+            </div>
+          {{end}}
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <form class="composer" id="chat-form"
+              hx-post="/chat" hx-target="#chat-col" hx-swap="beforeend"
+              {{if not .ChatEnabled}}data-disabled="1"{{end}}>
+          <input type="hidden" name="thread_id" id="thread-id" value="{{if .Thread}}{{.Thread.ID}}{{end}}">
+          <textarea name="message" id="chat-input" rows="1" placeholder="Message your coach…" autocomplete="off" {{if not .ChatEnabled}}disabled{{end}} autofocus></textarea>
+          <button type="submit" class="btn primary send" title="Send (Enter)" {{if not .ChatEnabled}}disabled{{end}}>↑</button>
+        </form>
+        <div class="composer-hint">Enter to send · Shift+Enter for a new line</div>
+      </div>
+    </section>
+  </main>
+{{template "foot" .}}{{end}}
+
+{{define "thread_list.html"}}
+<nav id="thread-list" class="thread-list"{{if .OOB}} hx-swap-oob="true"{{end}}>
+  {{$active := .ActiveID}}
+  {{range .Threads}}
+    <div class="thread{{if eq .ID $active}} active{{end}}">
+      <a href="/c/{{.ID}}" class="thread-link" title="{{.Title}}">{{.Title}}</a>
+      <div class="thread-actions">
+        <button type="button" class="btn tiny ghost thread-rename" title="Rename"
+                data-id="{{.ID}}" data-title="{{.Title}}" data-current="{{$active}}">✎</button>
+        <button type="button" class="btn tiny ghost" title="Delete"
+                hx-post="/threads/{{.ID}}/delete" hx-vals='{"current": "{{$active}}"}'
+                hx-target="#thread-list" hx-swap="outerHTML"
+                hx-confirm="Delete this conversation?">×</button>
+      </div>
+    </div>
+  {{else}}
+    <div class="thread-empty">No conversations yet.</div>
+  {{end}}
+</nav>
+{{end}}

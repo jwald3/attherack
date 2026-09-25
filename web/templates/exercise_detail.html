@@ -1,0 +1,52 @@
+{{define "exercise_detail.html"}}
+<div class="drawer-inner">
+  <div class="drawer-head">
+    <div>
+      <h2 class="drawer-title">{{.Name}}</h2>
+      {{if .Meta}}
+        <div class="drawer-meta">
+          {{range .Meta.PrimaryMuscles}}<span class="chip muscle">{{.}}</span>{{end}}
+          {{with deref .Meta.Equipment}}<span class="chip equip">{{.}}</span>{{end}}
+        </div>
+      {{end}}
+    </div>
+    <button class="btn ghost small" onclick="closeDrawer()" title="Close">✕</button>
+  </div>
+
+  {{if .TotalSets}}
+    <div class="drawer-stats">
+      <div class="stat"><div class="stat-label">Best set</div><div class="stat-val">{{printf "%g" .BestWeight}}×{{.BestReps}}</div></div>
+      {{if gt .BestE1RM 0.0}}<div class="stat"><div class="stat-label">Est. 1RM</div><div class="stat-val">{{printf "%.0f" .BestE1RM}}</div></div>{{end}}
+      <div class="stat"><div class="stat-label">Sessions</div><div class="stat-val">{{.Sessions}}</div></div>
+      <div class="stat"><div class="stat-label">Total sets</div><div class="stat-val">{{.TotalSets}}</div></div>
+    </div>
+
+    {{if .Chart.HasData}}
+      <div class="drawer-chart">
+        <div class="drawer-chart-label">Top set per session · {{printf "%g" .Chart.First}} → {{printf "%g" .Chart.Last}}
+          {{if ne .Chart.Change 0.0}}<span class="{{if gt .Chart.Change 0.0}}up-good{{else}}down-bad{{end}}">({{if gt .Chart.Change 0.0}}+{{end}}{{printf "%g" .Chart.Change}})</span>{{end}}
+        </div>
+        {{.Chart.SVG}}
+      </div>
+    {{end}}
+
+    <div class="drawer-history">
+      {{range .Days}}
+        <div class="dh-day">
+          <div class="dh-date">{{.Date}}</div>
+          <div class="dh-sets">
+            {{range .Sets}}
+              <span class="dh-set">{{printf "%g" .Weight}}×{{.Reps}}{{if .RPE}} <span class="dh-rpe">@{{.RPE}}</span>{{end}}</span>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="drawer-empty">
+      No sets logged for {{.Name}} yet.
+      {{if .Meta}}<div class="drawer-meta-note">This exercise is in your library — log a set and its history will appear here.</div>{{end}}
+    </div>
+  {{end}}
+</div>
+{{end}}

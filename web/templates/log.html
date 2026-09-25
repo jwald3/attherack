@@ -1,0 +1,33 @@
+{{define "log.html"}}
+{{if not .}}
+  <div class="empty">No sets logged yet. Add one above, or ask your coach to log it.</div>
+{{else}}
+  {{range .}}
+    <div class="workout">
+      <div class="workout-head">
+        <span class="workout-date">{{.Date}}</span>
+        {{if .Notes}}<span class="workout-notes">{{.Notes}}</span>{{end}}
+      </div>
+      {{if .Sets}}
+      <table class="sets">
+        <tbody>
+          {{range .Sets}}
+          <tr>
+            <td class="s-ex"><button type="button" class="ex-link" data-exercise-name="{{.Exercise}}">{{.Exercise}}</button></td>
+            <td class="s-load">{{.Weight}} × {{.Reps}}{{if .RPE}} <span class="s-rpe">@{{.RPE}}</span>{{end}}</td>
+            <td class="s-del">
+              <button class="btn tiny ghost"
+                      hx-post="/sets/{{.ID}}/delete" hx-target="#log" hx-swap="innerHTML"
+                      title="Delete set">×</button>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+        <div class="empty small">No sets on this day.</div>
+      {{end}}
+    </div>
+  {{end}}
+{{end}}
+{{end}}

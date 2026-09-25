@@ -1,0 +1,79 @@
+{{define "diet_page.html"}}{{template "head" .}}
+  <main class="bw-page">
+    <div class="bw-layout">
+      <section class="panel">
+        <h2 class="panel-title">Diet</h2>
+        <form class="diet-form" hx-post="/diet" hx-target="#diet-content" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){['name','notes','calories','protein','carbs','fat'].forEach(n=>this.elements[n].value='');this.elements.name.focus()}">
+          <div class="diet-row">
+            <input type="text" name="name" placeholder="What did you eat? (e.g. Chicken burrito bowl)" list="food-names" autocomplete="off" required class="diet-name">
+            <select name="meal" title="Meal">
+              <option value="breakfast"{{if eq .Meal "breakfast"}} selected{{end}}>Breakfast</option>
+              <option value="lunch"{{if eq .Meal "lunch"}} selected{{end}}>Lunch</option>
+              <option value="dinner"{{if eq .Meal "dinner"}} selected{{end}}>Dinner</option>
+              <option value="snack"{{if eq .Meal "snack"}} selected{{end}}>Snack</option>
+              <option value="">(none)</option>
+            </select>
+            <input type="date" name="date" value="{{.Today}}">
+          </div>
+          <div class="diet-row">
+            <input type="text" name="notes" placeholder="Notes (optional): portion, brand, how it was made…" autocomplete="off">
+            <button type="submit" class="btn primary">Log</button>
+          </div>
+          <details class="diet-macros">
+            <summary>Macros (optional)</summary>
+            <div class="diet-row">
+              <input type="number" name="calories" placeholder="Calories" step="any" min="0" inputmode="decimal">
+              <input type="number" name="protein" placeholder="Protein g" step="any" min="0" inputmode="decimal">
+              <input type="number" name="carbs" placeholder="Carbs g" step="any" min="0" inputmode="decimal">
+              <input type="number" name="fat" placeholder="Fat g" step="any" min="0" inputmode="decimal">
+            </div>
+          </details>
+        </form>
+        <div class="diet-hint">Tip: you can also just tell your coach what you ate, e.g. “had 3 eggs and toast for breakfast”.</div>
+        <div id="diet-content">
+          {{template "diet_content.html" .}}
+        </div>
+      </section>
+    </div>
+  </main>
+{{template "foot" .}}{{end}}
+
+{{define "diet_content.html"}}
+  <datalist id="food-names">
+    {{range .Names}}<option value="{{.}}"></option>{{end}}
+  </datalist>
+
+  {{if .Days}}
+    {{range .Days}}
+      <div class="diet-day">
+        <div class="diet-day-head">
+          <span class="dh-date">{{if eq .Date $.Today}}Today{{else}}{{.Date}}{{end}}</span>
+          {{if .HasMacros}}
+            <span class="diet-totals">
+              {{.TotalsSummary}}
+              <span class="diet-totals-note" title="Totals only count entries that have macros">(logged macros)</span>
+            </span>
+          {{end}}
+        </div>
+        {{range .Foods}}
+          <div class="food-row">
+            <span class="food-meal">{{if .Meal}}{{.Meal}}{{end}}</span>
+            <div class="food-main">
+              <div class="food-name">{{.Name}}</div>
+              {{if .Notes}}<div class="food-notes">{{.Notes}}</div>{{end}}
+            </div>
+            {{if .HasMacros}}
+              <span class="food-macros">{{.MacroSummary}}</span>
+            {{end}}
+            <button class="btn tiny ghost food-del"
+                    hx-post="/diet/{{.ID}}/delete" hx-target="#diet-content" hx-swap="innerHTML"
+                    title="Delete">×</button>
+          </div>
+        {{end}}
+      </div>
+    {{end}}
+  {{else}}
+    <div class="bw-empty-big">No food logged in the last 30 days. Add what you ate above. A name is enough.</div>
+  {{end}}
+{{end}}

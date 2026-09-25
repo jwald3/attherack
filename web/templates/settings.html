@@ -1,0 +1,33 @@
+{{define "settings.html"}}
+<div id="settings-panel" class="settings">
+  <div class="settings-status">
+    <span class="dot {{if .Enabled}}on{{else}}off{{end}}"></span>
+    {{if .Enabled}}
+      Coach enabled
+      {{if .Masked}}<span class="key-preview">{{.Masked}}</span>{{end}}
+      {{if .EnvLocked}}<span class="key-src">via env</span>{{end}}
+    {{else}}
+      Coach disabled
+    {{end}}
+  </div>
+
+  {{if .Msg}}<div class="settings-msg {{.Kind}}">{{.Msg}}</div>{{end}}
+
+  {{if .EnvLocked}}
+    <div class="settings-note">Key is provided by <code>ANTHROPIC_API_KEY</code>. Unset it to manage the key here.</div>
+  {{else}}
+    <form class="key-form"
+          hx-post="/settings/key" hx-target="#settings-panel" hx-swap="outerHTML">
+      <input type="password" name="api_key" placeholder="{{if .Enabled}}Replace key (sk-ant-…){{else}}Paste your Anthropic key (sk-ant-…){{end}}" autocomplete="off">
+      <div class="key-form-row">
+        <button type="submit" class="btn primary small">{{if .Enabled}}Update{{else}}Save key{{end}}</button>
+        {{if and .Enabled (not .EnvLocked)}}
+          <button type="button" class="btn ghost small"
+                  hx-post="/settings/key/delete" hx-target="#settings-panel" hx-swap="outerHTML">Remove</button>
+        {{end}}
+      </div>
+    </form>
+    <div class="settings-note">Stored locally in your SQLite database. Get a key at <span class="mono">console.anthropic.com</span>.</div>
+  {{end}}
+</div>
+{{end}}
