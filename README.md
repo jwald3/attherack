@@ -170,13 +170,20 @@ go vet ./... && gofmt -l .       # lint; gofmt should print nothing
 ### End-to-end tests
 
 `e2e/` drives the real app in a headless browser with
-[Playwright](https://playwright.dev). It builds the Go binary, starts it
-against a throwaway database, and points it at `e2e/fake-claude.mjs`, a
-stand-in for the Anthropic API that records what the app sends and replies
-deterministically, so the tests need no key and make no network calls. They
-cover the photo flow end to end: attaching, pasting, in-browser downscaling,
-the image blocks in the outgoing API request, thumbnails after reload, and
-rejected uploads.
+[Playwright](https://playwright.dev). It builds the Go binary, starts two
+instances against throwaway databases (one with an API key, one without), and
+points them at `e2e/fake-claude.mjs`, a stand-in for the Anthropic API that
+records what the app sends and replies deterministically, so the tests need no
+key and make no network calls.
+
+The tests cover every tab: logging and deleting on each, the exercise library
+and history drawers, programs, charts, progress photos, and the API-key
+settings. On the coach side they cover threads, titles, photos, and the tool-use
+loop. A message can script the fake API with directives: `<<tool:log_set
+{"exercise":"Squat","weight":225,"reps":5}>>` makes it call a tool,
+`<<error 529 Overloaded>>` makes it fail, and `<<slow 2500>>` delays the reply.
+Tests share one database per run, so each one uses unique names (`uid()`) or
+dates (`randomYear()`).
 
 ```sh
 cd e2e

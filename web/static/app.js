@@ -183,8 +183,11 @@
         if (result) result.innerHTML = '<div class="ex-add-msg err">' + (data.error || "AI fill failed.") + "</div>";
         return;
       }
+      // Scope to the add form: the library search above also has an
+      // "equipment" field, which a page-wide lookup would find first.
+      const form = btn.closest(".ex-add-form");
       const setVal = (sel, v) => {
-        const el = document.querySelector(sel);
+        const el = form?.querySelector(sel);
         if (el && v != null && v !== "") el.value = v;
       };
       setVal('[name="primary_muscles"]', (data.primary_muscles || []).join(", "));
