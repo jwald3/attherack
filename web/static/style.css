@@ -274,7 +274,8 @@ select option { background: var(--bg-panel); color: var(--text); }
 /* ---- supplements tab ---- */
 .supp-form input[type="text"][name="name"] { width: 170px; }
 .supp-form input.supp-amount { width: 92px; }
-.supp-form .supp-unit { width: 84px !important; }
+.supp-form select.supp-unit { width: 108px !important; }
+.supp-form input.supp-unit { width: 96px !important; }
 .supp-today-count { font-family: var(--mono); font-size: 11px; color: var(--text-faint); text-transform: none; letter-spacing: 0; margin-left: 8px; font-weight: 400; }
 .supp-quick { display: flex; flex-wrap: wrap; gap: 8px; }
 .supp-quick form { margin: 0; }
