@@ -5,8 +5,33 @@ export type FakeRequest = {
   at: number;
   model: string;
   system?: string;
+  tools: string[];
   messages: { role: string; content: any[] }[];
 };
+
+/** A short unique suffix, so tests sharing one database don't collide. */
+export function uid() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * A random past year, for tests that key rows by date (bodyweight,
+ * measurements): pick dates inside it and no other test will share them.
+ */
+export function randomYear() {
+  return 1900 + Math.floor(Math.random() * 100);
+}
+
+/** Accept every confirm()/prompt() on the page (optionally answering prompts). */
+export function acceptDialogs(page: Page, promptAnswer?: string) {
+  page.on("dialog", (d) => d.accept(d.type() === "prompt" ? promptAnswer : undefined));
+}
+
+/** Today's date as the app sees it (the header's "today YYYY-MM-DD"). */
+export async function appToday(page: Page) {
+  const text = await page.locator(".topbar-sub").textContent();
+  return text!.replace("today", "").trim();
+}
 
 export async function resetFake(request: APIRequestContext) {
   await request.post(`${FAKE_URL}/_reset`);

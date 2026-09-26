@@ -1,9 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // The app under test is the real Go binary, built from the repo root and
-// pointed at fake-claude.mjs via ANTHROPIC_BASE_URL. Both servers are started
-// by Playwright and torn down after the run. The database is recreated per run.
+// pointed at fake-claude.mjs via ANTHROPIC_BASE_URL. Two instances run: the
+// main one has ANTHROPIC_API_KEY set (so the coach works and the key UI is
+// locked), and a second one starts without a key, for the disabled-coach and
+// save-a-key flows. Playwright starts every server and tears them down after
+// the run; databases are recreated per run.
 export const APP_URL = "http://127.0.0.1:18181";
+export const NOKEY_URL = "http://127.0.0.1:18182";
 export const FAKE_URL = "http://127.0.0.1:19911";
 
 export default defineConfig({
@@ -36,6 +40,20 @@ export default defineConfig({
         ADDR: "127.0.0.1:18181",
         DB_PATH: "e2e/.bin/e2e.db",
         ANTHROPIC_API_KEY: "sk-ant-e2e",
+        ANTHROPIC_BASE_URL: FAKE_URL,
+      },
+    },
+    {
+      command:
+        "cd .. && go build -o e2e/.bin/attherack-nokey . && rm -f e2e/.bin/nokey.db e2e/.bin/nokey.db-shm e2e/.bin/nokey.db-wal && exec e2e/.bin/attherack-nokey",
+      url: NOKEY_URL + "/",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        ADDR: "127.0.0.1:18182",
+        DB_PATH: "e2e/.bin/nokey.db",
+        // Set but empty, so neither the shell's key nor a local .env enables it.
+        ANTHROPIC_API_KEY: "",
         ANTHROPIC_BASE_URL: FAKE_URL,
       },
     },
