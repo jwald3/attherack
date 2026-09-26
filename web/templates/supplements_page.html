@@ -5,23 +5,25 @@
         <div class="panel-titlebar">
           <h2 class="panel-title">Supplements</h2>
           <form class="cardio-form supp-form" hx-post="/supplements" hx-target="#supp-content" hx-swap="innerHTML"
-                hx-on::after-request="if(event.detail.successful){this.querySelector('[name=name]').value='';this.querySelector('[name=amount]').value=''}">
+                hx-on::after-request="if(event.detail.successful){this.querySelector('[name=name]').value='';this.querySelector('[name=amount]').value='';var u=this.querySelector('#supp-unit-select');if(u){u.value='';}var c=this.querySelector('#supp-unit-custom');if(c){c.value='';c.hidden=true;}}">
             <input type="text" name="name" placeholder="Supplement" list="supp-names" autocomplete="off" required>
             <input type="number" name="amount" placeholder="Amount" step="any" min="0" inputmode="decimal" class="supp-amount">
-            <input type="text" name="unit" placeholder="Unit" list="supp-units" autocomplete="off" class="supp-unit">
+            <select id="supp-unit-select" class="supp-unit" title="Unit" aria-label="Unit">
+              <option value="" selected>Unit</option>
+              <option value="g">g</option>
+              <option value="mg">mg</option>
+              <option value="mcg">mcg</option>
+              <option value="IU">IU</option>
+              <option value="capsules">capsules</option>
+              <option value="tablets">tablets</option>
+              <option value="scoops">scoops</option>
+              <option value="ml">ml</option>
+              <option value="__other">Other…</option>
+            </select>
+            <input type="text" name="unit" id="supp-unit-custom" placeholder="Unit" autocomplete="off" class="supp-unit" hidden>
             <input type="date" name="date" value="{{.Today}}">
             <button type="submit" class="btn primary small">Log</button>
           </form>
-          <datalist id="supp-units">
-            <option value="g"></option>
-            <option value="mg"></option>
-            <option value="mcg"></option>
-            <option value="IU"></option>
-            <option value="capsules"></option>
-            <option value="tablets"></option>
-            <option value="scoops"></option>
-            <option value="ml"></option>
-          </datalist>
         </div>
         <div id="supp-content">
           {{template "supplements_content.html" .}}

@@ -598,6 +598,25 @@
     $("#prog-name")?.focus();
   });
 
+  // Supplement unit: a styled <select> drives the actual name="unit" text input.
+  // Picking a listed unit copies it into the (hidden) input; "Other…" reveals the
+  // input for a custom value. This keeps one submitted field, no server change.
+  function syncSuppUnit(sel) {
+    const custom = $("#supp-unit-custom");
+    if (!custom) return;
+    if (sel.value === "__other") {
+      custom.hidden = false;
+      custom.value = "";
+      custom.focus();
+    } else {
+      custom.hidden = true;
+      custom.value = sel.value; // "" for the "Unit" placeholder option
+    }
+  }
+  document.addEventListener("change", (e) => {
+    if (e.target.id === "supp-unit-select") syncSuppUnit(e.target);
+  });
+
   // After a progress photo uploads, reset the form and clear the filename readout.
   document.body.addEventListener("photo-added", () => {
     const form = $("#photo-form");
