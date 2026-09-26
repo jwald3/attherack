@@ -132,6 +132,23 @@ CREATE TABLE IF NOT EXISTS custom_exercises (
     secondary_muscles TEXT NOT NULL DEFAULT '',
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS programs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    notes      TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS program_exercises (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+    position   INTEGER NOT NULL DEFAULT 0,
+    exercise   TEXT NOT NULL,
+    sets       INTEGER NOT NULL DEFAULT 1,
+    reps       INTEGER NOT NULL DEFAULT 0,
+    weight     REAL NOT NULL DEFAULT 0,
+    rpe        REAL
+);
+CREATE INDEX IF NOT EXISTS idx_prog_ex_program ON program_exercises(program_id);
 `)
 	if err != nil {
 		return err
@@ -955,6 +972,172 @@ WHERE thread_id = ? ORDER BY id DESC LIMIT ?`, threadID, limit)
 		msgs[i], msgs[j] = msgs[j], msgs[i]
 	}
 	return msgs, nil
+}
+
+// --- Programs (reusable workout templates) ---
+
+// Program is a named, reusable workout template: an ordered list of exercises
+// with target sets/reps/weight that can be logged to a day in one action.
+type Program struct {
+	ID        int64             `json:"id"`
+	Name      string            `json:"name"`
+	Notes     string            `json:"notes"`
+	CreatedAt string            `json:"created_at"`
+	Exercises []ProgramExercise `json:"exercises,omitempty"`
+}
+
+// ProgramExercise is one line of a program: an exercise plus how many sets to
+// log and their target reps/weight/rpe.
+type ProgramExercise struct {
+	ID       int64    `json:"id"`
+	Position int      `json:"position"`
+	Exercise string   `json:"exercise"`
+	Sets     int      `json:"sets"`
+	Reps     int      `json:"reps"`
+	Weight   float64  `json:"weight"`
+	RPE      *float64 `json:"rpe,omitempty"`
+}
+
+// createProgram inserts a program and its exercises atomically, returning the
+// new program id. Exercise order is taken from the slice order.
+func (s *Store) createProgram(name, notes string, exs []ProgramExercise) (int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`INSERT INTO programs (name, notes) VALUES (?, ?)`, name, notes)
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	for i, e := range exs {
+		sets := e.Sets
+		if sets < 1 {
+			sets = 1
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO program_exercises (program_id, position, exercise, sets, reps, weight, rpe) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, i, e.Exercise, sets, e.Reps, e.Weight, e.RPE); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// listPrograms returns all programs (newest first) with their exercises attached.
+func (s *Store) listPrograms() ([]Program, error) {
+	rows, err := s.db.Query(`SELECT id, name, notes, created_at FROM programs ORDER BY created_at DESC, id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var programs []Program
+	byID := map[int64]int{}
+	for rows.Next() {
+		var p Program
+		if err := rows.Scan(&p.ID, &p.Name, &p.Notes, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		byID[p.ID] = len(programs)
+		programs = append(programs, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(programs) == 0 {
+		return programs, nil
+	}
+
+	// Attach exercises in a second pass.
+	exRows, err := s.db.Query(`
+SELECT program_id, id, position, exercise, sets, reps, weight, rpe
+FROM program_exercises ORDER BY program_id, position, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer exRows.Close()
+	for exRows.Next() {
+		var pid int64
+		var e ProgramExercise
+		if err := exRows.Scan(&pid, &e.ID, &e.Position, &e.Exercise, &e.Sets, &e.Reps, &e.Weight, &e.RPE); err != nil {
+			return nil, err
+		}
+		if idx, ok := byID[pid]; ok {
+			programs[idx].Exercises = append(programs[idx].Exercises, e)
+		}
+	}
+	return programs, exRows.Err()
+}
+
+// getProgram returns one program with its exercises, or ok=false if not found.
+func (s *Store) getProgram(id int64) (Program, bool) {
+	var p Program
+	err := s.db.QueryRow(`SELECT id, name, notes, created_at FROM programs WHERE id = ?`, id).
+		Scan(&p.ID, &p.Name, &p.Notes, &p.CreatedAt)
+	if err != nil {
+		return Program{}, false
+	}
+	rows, err := s.db.Query(`
+SELECT id, position, exercise, sets, reps, weight, rpe
+FROM program_exercises WHERE program_id = ? ORDER BY position, id`, id)
+	if err != nil {
+		return Program{}, false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var e ProgramExercise
+		if err := rows.Scan(&e.ID, &e.Position, &e.Exercise, &e.Sets, &e.Reps, &e.Weight, &e.RPE); err != nil {
+			return Program{}, false
+		}
+		p.Exercises = append(p.Exercises, e)
+	}
+	return p, rows.Err() == nil
+}
+
+// deleteProgram removes a program and its exercises. Children are deleted
+// explicitly (the FK cascade is declared, but this matches deleteThread and is
+// robust regardless of PRAGMA foreign_keys state).
+func (s *Store) deleteProgram(id int64) error {
+	if _, err := s.db.Exec(`DELETE FROM program_exercises WHERE program_id = ?`, id); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`DELETE FROM programs WHERE id = ?`, id)
+	return err
+}
+
+// startProgram logs every set of a program to the given date (default today),
+// reusing logSet so the sets fold into that day's workout. It returns how many
+// sets were logged, or ok=false if the program doesn't exist.
+func (s *Store) startProgram(id int64, date string) (logged int, ok bool, err error) {
+	if date == "" {
+		date = today()
+	}
+	p, found := s.getProgram(id)
+	if !found {
+		return 0, false, nil
+	}
+	for _, e := range p.Exercises {
+		n := e.Sets
+		if n < 1 {
+			n = 1
+		}
+		for i := 0; i < n; i++ {
+			if _, err := s.logSet(date, e.Exercise, e.Weight, e.Reps, e.RPE); err != nil {
+				return logged, true, err
+			}
+			logged++
+		}
+	}
+	return logged, true, nil
 }
 
 func today() string { return time.Now().Format("2006-01-02") }

@@ -1,0 +1,91 @@
+{{define "programs.html"}}{{template "head" .}}
+  <main class="layout layout-2">
+    <!-- Left: saved programs -->
+    <section class="col col-log">
+      <div class="panel grow">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Your programs</h2>
+        </div>
+        <div id="program-list">
+          {{template "programs_list.html" .Programs}}
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: create a program -->
+    <section class="col col-ex">
+      <div class="panel grow">
+        <h2 class="panel-title">New program</h2>
+        <form class="prog-form" id="prog-form"
+              hx-post="/programs" hx-target="#program-list" hx-swap="innerHTML">
+          <input type="text" name="name" id="prog-name" placeholder="Program name (e.g. Push Day)" autocomplete="off" required>
+          <input type="text" name="notes" placeholder="Notes (optional)" autocomplete="off">
+
+          <div class="prog-rows" id="prog-rows">
+            <!-- template row; cloned by app.js -->
+            <div class="prog-row">
+              <input type="text" name="exercise" placeholder="Exercise" list="exercise-names" autocomplete="off">
+              <input type="number" name="sets" placeholder="Sets" value="3" min="1" inputmode="numeric" title="Sets">
+              <input type="number" name="reps" placeholder="Reps" inputmode="numeric" title="Reps">
+              <input type="number" name="weight" placeholder="Weight" step="any" inputmode="decimal" title="Weight">
+              <input type="number" name="rpe" placeholder="RPE" step="0.5" min="1" max="10" inputmode="decimal" title="RPE (optional)">
+              <button type="button" class="btn tiny ghost prog-row-del" title="Remove exercise" aria-label="Remove exercise">{{icon "x"}}</button>
+            </div>
+          </div>
+
+          <button type="button" class="btn ghost small" id="prog-add-row">{{icon "plus"}} Add exercise</button>
+
+          <div class="prog-form-foot">
+            <button type="submit" class="btn primary">Save program</button>
+          </div>
+        </form>
+        <datalist id="exercise-names"></datalist>
+      </div>
+    </section>
+  </main>
+
+  <!-- Exercise history drawer (populated on demand) -->
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden onclick="closeDrawer()"></div>
+  <aside id="drawer" class="drawer" hidden aria-label="Exercise history"></aside>
+{{template "foot" .}}{{end}}
+
+{{define "programs_list.html"}}
+{{if not .}}
+  <div class="empty">No programs yet. Build one on the right, or ask your coach to make one.</div>
+{{else}}
+  {{range .}}
+    <div class="program" data-id="{{.ID}}">
+      <div class="program-head">
+        <div class="program-titles">
+          <span class="program-name">{{.Name}}</span>
+          {{if .Notes}}<span class="program-notes">{{.Notes}}</span>{{end}}
+        </div>
+        <div class="program-actions">
+          <button class="btn small primary"
+                  hx-post="/programs/{{.ID}}/start"
+                  hx-target="#prog-started-{{.ID}}" hx-swap="innerHTML"
+                  title="Log this program to today">Start</button>
+          <button class="btn tiny ghost"
+                  hx-post="/programs/{{.ID}}/delete" hx-target="#program-list" hx-swap="innerHTML"
+                  hx-confirm="Delete this program?" title="Delete program" aria-label="Delete program">{{icon "trash"}}</button>
+        </div>
+      </div>
+      {{if .Exercises}}
+      <table class="sets">
+        <tbody>
+          {{range .Exercises}}
+          <tr>
+            <td class="s-ex"><button type="button" class="ex-link" data-exercise-name="{{.Exercise}}">{{.Exercise}}</button></td>
+            <td class="s-load">{{.Sets}} × {{.Reps}}{{if .Weight}} @ {{.Weight}}{{end}}{{if .RPE}} <span class="s-rpe">@{{.RPE}}</span>{{end}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+        <div class="empty small">No exercises.</div>
+      {{end}}
+      <div class="prog-started-slot" id="prog-started-{{.ID}}"></div>
+    </div>
+  {{end}}
+{{end}}
+{{end}}

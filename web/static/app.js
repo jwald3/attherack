@@ -321,6 +321,56 @@
     setTimeout(() => window.location.reload(), 700);
   });
 
+  // ---- Programs ----
+  // Clone the last exercise row when "+ Add exercise" is clicked. Keeps the
+  // exercise autocomplete (name="exercise" + list="exercise-names") intact.
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#prog-add-row")) {
+      const rows = $("#prog-rows");
+      if (!rows) return;
+      const last = rows.querySelector(".prog-row:last-child");
+      const clone = last.cloneNode(true);
+      clone.querySelectorAll("input").forEach((inp) => {
+        // Keep the default sets value; clear everything else.
+        inp.value = inp.name === "sets" ? "3" : "";
+      });
+      rows.appendChild(clone);
+      clone.querySelector('input[name="exercise"]')?.focus();
+      return;
+    }
+    // Remove a row (but never the last remaining one — just clear it instead).
+    const del = e.target.closest(".prog-row-del");
+    if (del) {
+      const rows = $("#prog-rows");
+      const row = del.closest(".prog-row");
+      if (rows && rows.querySelectorAll(".prog-row").length > 1) {
+        row.remove();
+      } else {
+        row.querySelectorAll("input").forEach((inp) => {
+          inp.value = inp.name === "sets" ? "3" : "";
+        });
+      }
+    }
+  });
+
+  // After a program is saved, reset the form back to a single blank row.
+  document.body.addEventListener("program-added", () => {
+    const form = $("#prog-form");
+    if (!form) return;
+    form.reset();
+    const rows = $("#prog-rows");
+    if (rows) {
+      const first = rows.querySelector(".prog-row");
+      rows.querySelectorAll(".prog-row").forEach((r, i) => {
+        if (i > 0) r.remove();
+      });
+      first?.querySelectorAll("input").forEach((inp) => {
+        inp.value = inp.name === "sets" ? "3" : "";
+      });
+    }
+    $("#prog-name")?.focus();
+  });
+
   // When a custom exercise is added, reset the form, refresh search results so
   // it appears, and invalidate the cached datalist so it autocompletes too.
   document.body.addEventListener("exercise-added", () => {

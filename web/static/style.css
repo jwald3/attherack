@@ -279,6 +279,32 @@ tr:hover .s-del .btn { opacity: 1; }
 .empty { color: var(--text-faint); padding: 16px 4px; font-size: 13px; }
 .empty.small { padding: 8px 4px; font-size: 12px; }
 
+/* ---- programs ---- */
+#program-list { overflow-y: auto; padding-right: 4px; }
+.program { border-top: 1px solid var(--border-soft); padding: 12px 0; }
+.program:first-child { border-top: none; }
+.program-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.program-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.program-name { font-weight: 600; color: var(--text); }
+.program-notes { color: var(--text-dim); font-size: 12px; font-style: italic; }
+.program-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.prog-started-slot:not(:empty) { margin-top: 6px; }
+.prog-started { font-size: 12px; color: var(--accent); font-family: var(--mono); }
+.prog-started.err { color: var(--text-dim); }
+.prog-started a { color: var(--accent); }
+
+.prog-form { display: flex; flex-direction: column; gap: 8px; }
+.prog-rows { display: flex; flex-direction: column; gap: 6px; }
+.prog-row { display: flex; gap: 6px; align-items: center; }
+.prog-row input[name="exercise"] { flex: 3; min-width: 0; }
+.prog-row input[name="sets"],
+.prog-row input[name="reps"],
+.prog-row input[name="weight"],
+.prog-row input[name="rpe"] { flex: 1; min-width: 0; width: 100%; }
+.prog-row-del { flex-shrink: 0; opacity: 0.6; }
+.prog-row-del:hover { opacity: 1; }
+.prog-form-foot { margin-top: 4px; }
+
 /* ---- exercise library ---- */
 .exsearch { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .exsearch-row { display: flex; gap: 8px; }

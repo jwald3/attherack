@@ -129,6 +129,7 @@ const systemPrompt = `You are a knowledgeable, encouraging strength & conditioni
 You have tools to read and write the user's workout data (sets grouped into dated workouts) and to search an exercise database of ~870 movements. Prefer calling tools over guessing:
 - When the user reports doing an exercise, log it with log_set.
 - To fix a mistake in an already-logged set (wrong reps/weight/rpe), don't log a duplicate: call get_exercise_history to find the set's id, then update_set to correct it or delete_set to remove a stray entry. Confirm which set you're changing if there's any ambiguity.
+- The user can save reusable workout templates called programs. Create one with create_program, see what exists with list_programs, and log a whole program's sets to a day with start_program (by name or id). Use these when the user describes a routine they want to reuse (e.g. "make a push day of bench, ohp, dips" then later "start my push day").
 - When asked how they're trending or about a specific lift, call get_exercise_history or list_workouts first, then answer with real numbers.
 - When suggesting exercises, use search_exercises so you recommend real movements with correct muscle/equipment data.
 - If the user mentions a movement not in the library, search first; if it's genuinely missing, add it with create_exercise (then you can log sets against it).
@@ -340,6 +341,53 @@ func (a *Agent) tools() []toolDef {
 					"id": map[string]any{"type": "integer", "description": "The set id to delete (from get_exercise_history or list_workouts)"},
 				},
 				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "create_program",
+			Description: "Save a reusable workout template ('program'): a named, ordered list of exercises with target sets/reps/weight. Use when the user describes a routine they want to reuse (e.g. a push day). The user can later start it to log all its sets to a day in one action.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name":  map[string]any{"type": "string", "description": "Program name, e.g. 'Push Day'"},
+					"notes": map[string]any{"type": "string", "description": "Optional notes about the program"},
+					"exercises": map[string]any{
+						"type":        "array",
+						"description": "Ordered exercises in the program",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"exercise": map[string]any{"type": "string", "description": "Exercise name, e.g. 'Barbell Bench Press'"},
+								"sets":     map[string]any{"type": "integer", "description": "How many sets to log when the program is started (default 1)"},
+								"reps":     map[string]any{"type": "integer", "description": "Target reps per set"},
+								"weight":   map[string]any{"type": "number", "description": "Target weight in the user's units"},
+								"rpe":      map[string]any{"type": "number", "description": "Optional target RPE, 1-10"},
+							},
+							"required": []string{"exercise"},
+						},
+					},
+				},
+				"required": []string{"name", "exercises"},
+			},
+		},
+		{
+			Name:        "list_programs",
+			Description: "List the user's saved programs (workout templates) with their exercises. Use to see what programs exist before starting one or to answer questions about them.",
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+		{
+			Name:        "start_program",
+			Description: "Log every set of a saved program to a day (defaults to today), so the user doesn't re-enter the exercises. Identify the program by id or by name. If a name matches more than one program, list the matches and ask which.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":   map[string]any{"type": "integer", "description": "Program id (from list_programs). Use this or name."},
+					"name": map[string]any{"type": "string", "description": "Program name to look up (case-insensitive). Use this or id."},
+					"date": map[string]any{"type": "string", "description": "YYYY-MM-DD; omit for today"},
+				},
 			},
 		},
 	}
@@ -811,6 +859,100 @@ func (a *Agent) runTool(name string, input json.RawMessage) (result string, muta
 			return "", false, err
 		}
 		return fmt.Sprintf("Deleted set #%d: %s %gx%d on %s.", cur.Set.ID, cur.Set.Exercise, cur.Set.Weight, cur.Set.Reps, cur.Date), true, nil
+
+	case "create_program":
+		var in struct {
+			Name      string            `json:"name"`
+			Notes     string            `json:"notes"`
+			Exercises []ProgramExercise `json:"exercises"`
+		}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return "", false, err
+		}
+		in.Name = strings.TrimSpace(in.Name)
+		if in.Name == "" {
+			return "", false, fmt.Errorf("name is required")
+		}
+		// Keep only exercises that actually name a movement.
+		var exs []ProgramExercise
+		for _, e := range in.Exercises {
+			e.Exercise = strings.TrimSpace(e.Exercise)
+			if e.Exercise == "" {
+				continue
+			}
+			exs = append(exs, e)
+		}
+		if len(exs) == 0 {
+			return "", false, fmt.Errorf("a program needs at least one exercise")
+		}
+		id, err := a.store.createProgram(in.Name, strings.TrimSpace(in.Notes), exs)
+		if err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("Created program %q with %d exercises (#%d).", in.Name, len(exs), id), true, nil
+
+	case "list_programs":
+		programs, err := a.store.listPrograms()
+		if err != nil {
+			return "", false, err
+		}
+		if len(programs) == 0 {
+			return "No programs saved yet.", false, nil
+		}
+		b, _ := json.Marshal(programs)
+		return string(b), false, nil
+
+	case "start_program":
+		var in struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+			Date string `json:"date"`
+		}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return "", false, err
+		}
+		// Resolve by name if no id was given.
+		if in.ID == 0 {
+			name := strings.TrimSpace(in.Name)
+			if name == "" {
+				return "", false, fmt.Errorf("provide a program id or name")
+			}
+			programs, err := a.store.listPrograms()
+			if err != nil {
+				return "", false, err
+			}
+			var matches []Program
+			for _, p := range programs {
+				if strings.EqualFold(strings.TrimSpace(p.Name), name) {
+					matches = append(matches, p)
+				}
+			}
+			switch len(matches) {
+			case 0:
+				return fmt.Sprintf("No program named %q. Use list_programs to see what exists.", name), false, nil
+			case 1:
+				in.ID = matches[0].ID
+			default:
+				var sb strings.Builder
+				fmt.Fprintf(&sb, "Multiple programs named %q — ask which id:\n", name)
+				for _, p := range matches {
+					fmt.Fprintf(&sb, "  #%d (%d exercises)\n", p.ID, len(p.Exercises))
+				}
+				return sb.String(), false, nil
+			}
+		}
+		if in.Date == "" {
+			in.Date = today()
+		}
+		p, found := a.store.getProgram(in.ID)
+		if !found {
+			return fmt.Sprintf("No program with id #%d.", in.ID), false, nil
+		}
+		n, _, err := a.store.startProgram(in.ID, in.Date)
+		if err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("Started %q: logged %d sets to %s.", p.Name, n, in.Date), true, nil
 
 	default:
 		return "", false, fmt.Errorf("unknown tool %q", name)
