@@ -28,7 +28,7 @@ optional Anthropic API. Data lives in a local SQLite file.
 
 | Tab | What it does |
 | --- | --- |
-| **Coach** (home) | Chat with Claude, organized into conversations like the Claude app: a sidebar of threads, automatic titles, rename and delete. The coach reads and writes all of your data through tools, so answers use real numbers. |
+| **Coach** (home) | Chat with Claude, organized into conversations like the Claude app: a sidebar of threads, automatic titles, rename and delete. The coach reads and writes all of your data through tools, so answers use real numbers. Attach, paste or drop photos (up to 4 per message) to ask about a machine you don't recognize, a physique check-in, a meal, or a screenshot of a plan. |
 | **Training** | Log sets (exercise, weight, reps, RPE); they're grouped into dated workouts. Search a library of ~870 exercises by name, muscle or equipment, or add your own (the **AI** button fills in muscles and equipment from the name). Click any exercise for its history: best set, estimated 1RM, progression chart, every set by date. |
 | **Cardio** | Log sessions (type, minutes, miles) with weekly and 30-day totals. Click a type (e.g. Running) for its history: distance, time, pace and speed per session, plus best and average pace and a pace chart. |
 | **Bodyweight** | Weigh-ins with a trend chart and start/current/change/min/max stats. |
@@ -113,9 +113,13 @@ so the coach has context before it calls any tool.
 The cheaper `claude-haiku-4-5` model writes conversation titles and powers the
 **AI** button on the custom-exercise form.
 
+Photos are downscaled in the browser (longest edge 1568px) before upload and
+stored in the local database alongside the message, so earlier photos in a
+conversation stay in context for follow-up questions.
+
 Your API key stays on your machine. The only data that leaves it is what's
-sent to the Anthropic API during a chat: your messages, plus whatever the
-coach's tools read to answer them.
+sent to the Anthropic API during a chat: your messages and any photos you
+attach, plus whatever the coach's tools read to answer them.
 
 ## Project layout
 

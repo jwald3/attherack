@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -48,6 +49,25 @@ type contentPart struct {
 	ToolUseID string `json:"tool_use_id,omitempty"`
 	Content   string `json:"content,omitempty"`
 	IsError   bool   `json:"is_error,omitempty"`
+
+	// image (user-attached photo, sent inline as base64)
+	Source *imageSource `json:"source,omitempty"`
+}
+
+// imageSource is the base64 payload of an image content block.
+type imageSource struct {
+	Type      string `json:"type"` // always "base64"
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
+// imagePart builds an image content block from stored bytes.
+func imagePart(img ChatImage) contentPart {
+	return contentPart{Type: "image", Source: &imageSource{
+		Type:      "base64",
+		MediaType: img.MediaType,
+		Data:      base64.StdEncoding.EncodeToString(img.Data),
+	}}
 }
 
 // MarshalJSON emits only the fields valid for each block type. This matters for
@@ -77,6 +97,8 @@ func (c contentPart) MarshalJSON() ([]byte, error) {
 		if c.IsError {
 			m["is_error"] = true
 		}
+	case "image":
+		m["source"] = c.Source
 	default: // "text" and anything else
 		m["text"] = c.Text
 	}
@@ -139,7 +161,9 @@ You have tools to read and write the user's workout data (sets grouped into date
 
 Be concise and practical. Use the user's own units (they give weight as a number; don't assume kg vs lb). Today's date is provided below — use it as the default date for logging unless the user specifies otherwise.
 
-If the user asks for insights, ground every claim in data you retrieved. Call out progressions ("+10 from last week"), stalls, and imbalances when you see them.`
+If the user asks for insights, ground every claim in data you retrieved. Call out progressions ("+10 from last week"), stalls, and imbalances when you see them.
+
+The user can attach photos to a message: a physique check-in, a gym machine or piece of equipment they don't recognize, a screenshot of a workout plan, a meal, or a form check still. When a photo is attached, look at it carefully and answer about what you actually see. For an unfamiliar machine, name it, say what it trains and how to set it up; if it's a known movement, search_exercises so you can log it under a real name. For physique photos be honest, specific and kind: describe what stands out and tie it to training and nutrition suggestions rather than giving a medical or body-fat verdict. For a plan or log screenshot, offer to log the sets it shows. Do not guess at details the photo doesn't show.`
 
 func (a *Agent) tools() []toolDef {
 	return []toolDef{
@@ -397,23 +421,8 @@ func (a *Agent) tools() []toolDef {
 // calls, and loops until Claude produces a final text answer. It returns the
 // assistant's final text and whether the store was mutated (so the UI can
 // know to refresh the log panel).
-func (a *Agent) Chat(history []ChatMessage, userMsg string) (reply string, mutated bool, err error) {
-	msgs := make([]apiMessage, 0, len(history)+1)
-	for _, m := range history {
-		// Skip placeholder replies still being generated (or failed): they have
-		// no usable text and the API rejects empty assistant turns.
-		if m.Role == "assistant" && (m.Status == "pending" || strings.TrimSpace(m.Content) == "") {
-			continue
-		}
-		msgs = append(msgs, apiMessage{
-			Role:    m.Role,
-			Content: []contentPart{{Type: "text", Text: m.Content}},
-		})
-	}
-	msgs = append(msgs, apiMessage{
-		Role:    "user",
-		Content: []contentPart{{Type: "text", Text: userMsg}},
-	})
+func (a *Agent) Chat(history []ChatMessage, userMsg string, images []ChatImage) (reply string, mutated bool, err error) {
+	msgs := a.buildMessages(history, userMsg, images)
 
 	sys := systemPrompt + "\n\nToday's date: " + today() +
 		"\n\nRecent training snapshot:\n" + a.store.summaryContext()
@@ -458,6 +467,55 @@ func (a *Agent) Chat(history []ChatMessage, userMsg string) (reply string, mutat
 		msgs = append(msgs, apiMessage{Role: "user", Content: results})
 	}
 	return "I got stuck working through that — try rephrasing?", mutated, nil
+}
+
+// buildMessages converts stored chat history plus the new user turn into API
+// messages. User turns carry their attached photos as image blocks ahead of
+// the text; earlier photos are reloaded from the store so follow-up questions
+// ("what about the machine next to it?") still have the picture in context.
+func (a *Agent) buildMessages(history []ChatMessage, userMsg string, images []ChatImage) []apiMessage {
+	msgs := make([]apiMessage, 0, len(history)+1)
+	for _, m := range history {
+		// Skip placeholder replies still being generated (or failed): they have
+		// no usable text and the API rejects empty assistant turns.
+		if m.Role == "assistant" && (m.Status == "pending" || strings.TrimSpace(m.Content) == "") {
+			continue
+		}
+		var imgs []ChatImage
+		for _, ref := range m.Images {
+			if ref.Data != nil {
+				imgs = append(imgs, ref)
+			} else if a.store != nil {
+				if full, ok := a.store.getChatImage(ref.ID); ok {
+					imgs = append(imgs, full)
+				}
+			}
+		}
+		parts := userParts(m.Content, imgs)
+		if len(parts) == 0 {
+			continue
+		}
+		msgs = append(msgs, apiMessage{Role: m.Role, Content: parts})
+	}
+	msgs = append(msgs, apiMessage{Role: "user", Content: userParts(userMsg, images)})
+	return msgs
+}
+
+// userParts lays out a turn as [images..., text]. The API rejects empty text
+// blocks, so a photo-only message carries a short stand-in caption.
+func userParts(text string, images []ChatImage) []contentPart {
+	parts := make([]contentPart, 0, len(images)+1)
+	for _, img := range images {
+		parts = append(parts, imagePart(img))
+	}
+	text = strings.TrimSpace(text)
+	if text == "" && len(images) > 0 {
+		text = "(photo attached, no caption)"
+	}
+	if text != "" {
+		parts = append(parts, contentPart{Type: "text", Text: text})
+	}
+	return parts
 }
 
 func (a *Agent) call(req apiRequest) (*apiResponse, error) {
