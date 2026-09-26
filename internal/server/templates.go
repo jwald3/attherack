@@ -27,6 +27,7 @@ func templateFuncs() template.FuncMap {
 		"pct":   percent,
 		"icon":  icon,
 		"imgs":  func(imgs []store.ChatImage) template.HTML { return template.HTML(imagesHTML(imgs)) },
+		"add":   func(a, b int) int { return a + b },
 	}
 }
 

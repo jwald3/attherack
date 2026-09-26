@@ -14,7 +14,12 @@ async function logSet(page: Page, exercise: string, weight: string, reps: string
   await form.getByRole("button", { name: "Add set" }).click();
 }
 
-const setRow = (page: Page, exercise: string) => page.locator("#log tr", { has: page.locator(`[data-exercise-name="${exercise}"]`) });
+// Sets are grouped by exercise: an .ex-group with a heading carrying the
+// exercise name, and a .sets table of that exercise's set rows beneath it.
+const setRow = (page: Page, exercise: string) =>
+  page
+    .locator("#log .ex-group", { has: page.locator(`[data-exercise-name="${exercise}"]`) })
+    .locator("table.sets tr");
 
 test("logs sets into today's workout and deletes one", async ({ page }) => {
   const ex = `Test Squat ${uid()}`;

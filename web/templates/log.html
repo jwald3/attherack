@@ -8,22 +8,31 @@
         <span class="workout-date">{{.Date}}</span>
         {{if .Notes}}<span class="workout-notes">{{.Notes}}</span>{{end}}
       </div>
-      {{if .Sets}}
-      <table class="sets">
-        <tbody>
-          {{range .Sets}}
-          <tr>
-            <td class="s-ex"><button type="button" class="ex-link" data-exercise-name="{{.Exercise}}">{{.Exercise}}</button></td>
-            <td class="s-load">{{.Weight}} × {{.Reps}}{{if .RPE}} <span class="s-rpe">@{{.RPE}}</span>{{end}}</td>
-            <td class="s-del">
-              <button class="btn tiny ghost"
-                      hx-post="/sets/{{.ID}}/delete" hx-target="#log" hx-swap="innerHTML"
-                      title="Delete set" aria-label="Delete set">{{icon "trash"}}</button>
-            </td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
+      {{$groups := .ExerciseGroups}}
+      {{if $groups}}
+        {{range $groups}}
+          <div class="ex-group">
+            <div class="ex-group-head">
+              <button type="button" class="ex-link ex-group-name" data-exercise-name="{{.Exercise}}">{{.Exercise}}</button>
+              <span class="ex-group-count">{{len .Sets}} {{if eq (len .Sets) 1}}set{{else}}sets{{end}}</span>
+            </div>
+            <table class="sets">
+              <tbody>
+                {{range $i, $set := .Sets}}
+                <tr>
+                  <td class="s-num">{{add $i 1}}</td>
+                  <td class="s-load">{{$set.Weight}} × {{$set.Reps}}{{if $set.RPE}} <span class="s-rpe">@{{$set.RPE}}</span>{{end}}</td>
+                  <td class="s-del">
+                    <button class="btn tiny ghost"
+                            hx-post="/sets/{{$set.ID}}/delete" hx-target="#log" hx-swap="innerHTML"
+                            title="Delete set" aria-label="Delete set">{{icon "trash"}}</button>
+                  </td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+        {{end}}
       {{else}}
         <div class="empty small">No sets on this day.</div>
       {{end}}

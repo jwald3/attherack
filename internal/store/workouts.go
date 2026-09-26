@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"strings"
 )
 
 // Workout is a dated training session that groups a set of logged sets.
@@ -21,6 +22,33 @@ type Set struct {
 	Weight    float64  `json:"weight"`
 	Reps      int      `json:"reps"`
 	RPE       *float64 `json:"rpe,omitempty"`
+}
+
+// ExerciseGroup is all of a workout's sets for one exercise, in the order they
+// were logged. It's how the Training log is displayed: one heading per exercise
+// with its sets beneath, instead of a flat list of loose sets.
+type ExerciseGroup struct {
+	Exercise string
+	Sets     []Set
+}
+
+// ExerciseGroups groups a workout's sets by exercise, merging every set of the
+// same exercise under one group regardless of the order logged. Groups appear
+// in the order each exercise was first performed; sets within a group keep their
+// logged order.
+func (w Workout) ExerciseGroups() []ExerciseGroup {
+	var groups []ExerciseGroup
+	idx := map[string]int{}
+	for _, st := range w.Sets {
+		key := strings.ToLower(strings.TrimSpace(st.Exercise))
+		if i, ok := idx[key]; ok {
+			groups[i].Sets = append(groups[i].Sets, st)
+			continue
+		}
+		idx[key] = len(groups)
+		groups = append(groups, ExerciseGroup{Exercise: st.Exercise, Sets: []Set{st}})
+	}
+	return groups
 }
 
 // DatedSet is a logged set with its workout date attached.

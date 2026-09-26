@@ -106,7 +106,10 @@ test("row delete buttons are visible without hover and easy to tap", async ({ pa
   await form.locator('[name="reps"]').fill("12");
   await form.getByRole("button", { name: "Add set" }).tap();
 
-  const del = page.locator("#log tr", { has: page.locator(`[data-exercise-name="${ex}"]`) }).getByRole("button", { name: "Delete set" });
+  const del = page
+    .locator("#log .ex-group", { has: page.locator(`[data-exercise-name="${ex}"]`) })
+    .locator("table.sets tr")
+    .getByRole("button", { name: "Delete set" });
   await expect(del).toBeVisible();
   expect(await del.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
   const box = (await del.boundingBox())!;

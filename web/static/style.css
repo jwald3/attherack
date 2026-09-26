@@ -330,6 +330,19 @@ table.sets td { padding: 3px 0; vertical-align: middle; }
 .s-del .btn { opacity: 0; }
 tr:hover .s-del .btn { opacity: 1; }
 
+/* Sets grouped by exercise: a heading per exercise, its sets stacked beneath. */
+.ex-group { margin: 8px 0 4px; }
+.ex-group:first-child { margin-top: 2px; }
+.ex-group-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.ex-group-name { font-weight: 600; }
+.ex-group-name.ex-link { color: var(--text); }
+.ex-group-count { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+.ex-group table.sets { margin-left: 2px; }
+.s-num {
+  width: 1.6em; text-align: center;
+  font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+}
+
 .empty { color: var(--text-faint); padding: 16px 4px; font-size: 13px; }
 .empty.small { padding: 8px 4px; font-size: 12px; }
 
@@ -829,9 +842,10 @@ select:focus { border-color: var(--accent-dim); }
   /* Supplement consistency rows: drop the fixed name column so the bar fits. */
   .supp-cons-row { grid-template-columns: minmax(70px, 1fr) 1.4fr 44px; gap: 8px; }
 
-  /* History/log table: let long exercise names truncate instead of pushing the
-     numeric column off-screen. */
-  table.sets { table-layout: fixed; }
+  /* Program table still lists exercise names per row: let long names truncate
+     instead of pushing the target column off-screen. (The Training log now shows
+     the exercise as a heading above its sets, so it needs no truncation.) */
+  .program table.sets { table-layout: fixed; }
   .s-ex { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .s-ex .ex-link { display: inline; }
 

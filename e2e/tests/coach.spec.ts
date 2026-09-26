@@ -82,7 +82,11 @@ test("the coach logs a set through a tool, and it shows up in Training", async (
   expect(result.content[0].tool_use_id).toBe(asked.content.find((p) => p.type === "tool_use").id);
 
   await page.goto("/training");
-  const row = page.locator(".workout").first().locator("tr", { has: page.locator(`[data-exercise-name="${ex}"]`) });
+  const row = page
+    .locator(".workout")
+    .first()
+    .locator(".ex-group", { has: page.locator(`[data-exercise-name="${ex}"]`) })
+    .locator("table.sets tr");
   await expect(row.locator(".s-load")).toHaveText("225 × 5 @8");
 });
 

@@ -49,8 +49,10 @@ test("builds a program, starts it into today's log, and deletes it", async ({ pa
   await card.locator(".prog-started a").click();
   await expect(page).toHaveURL(/\/training$/);
   const today = page.locator(".workout").first();
-  await expect(today.locator(`tr:has([data-exercise-name="${bench}"])`)).toHaveCount(2);
-  await expect(today.locator(`tr:has([data-exercise-name="${dips}"])`)).toHaveCount(3);
+  const groupRows = (ex: string) =>
+    today.locator(".ex-group", { has: page.locator(`[data-exercise-name="${ex}"]`) }).locator("table.sets tr");
+  await expect(groupRows(bench)).toHaveCount(2);
+  await expect(groupRows(dips)).toHaveCount(3);
 
   await page.goto("/programs");
   await card.getByRole("button", { name: "Delete program" }).click();
