@@ -307,6 +307,48 @@ tr:hover .s-del .btn { opacity: 1; }
 .prog-row-del:hover { opacity: 1; }
 .prog-form-foot { margin-top: 4px; }
 
+/* ---- progress (measurements + photos) ---- */
+.bw-layout.progress-layout { max-width: 1100px; }
+@media (min-width: 901px) {
+  .progress-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+}
+
+.measure-form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.measure-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+.measure-field { display: flex; flex-direction: column; gap: 3px; }
+.measure-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.measure-form-foot { display: flex; gap: 8px; align-items: center; }
+.measure-form-foot input[type="date"] { width: auto; flex: 1; }
+
+.measure-cards { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.measure-card { border-top: 1px solid var(--border-soft); padding-top: 12px; }
+.measure-card:first-child { border-top: none; }
+.measure-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.measure-card-label { font-weight: 600; }
+.measure-card-val { font-family: var(--mono); font-size: 15px; }
+.measure-card-on { color: var(--text-faint); font-size: 12px; }
+.measure-chart { margin: 8px 0; }
+.measure-stats { display: flex; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+.measure-history { margin-top: 6px; }
+.measure-history > summary { cursor: pointer; color: var(--text-dim); font-size: 12.5px; user-select: none; }
+.measure-history > summary:hover { color: var(--text); }
+.measure-history[open] > summary { margin-bottom: 4px; }
+
+.photo-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.photo-form-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-form-row input[type="file"] { flex: 1 1 100%; color: var(--text-dim); }
+.photo-form-row input[type="text"] { flex: 2; min-width: 160px; }
+.photo-form-row input[type="date"] { flex: 1; min-width: 140px; width: auto; }
+
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.photo-item { margin: 0; background: var(--bg-elev); border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden; }
+.photo-item img { display: block; width: 100%; height: 160px; object-fit: cover; background: var(--bg); }
+.photo-cap { display: flex; align-items: center; gap: 6px; padding: 6px 8px; font-size: 12px; }
+.photo-date { font-family: var(--mono); color: var(--accent); }
+.photo-pose { color: var(--text-dim); text-transform: capitalize; }
+.photo-del { margin-left: auto; opacity: 0.6; }
+.photo-del:hover { opacity: 1; }
+
 /* ---- exercise library ---- */
 .exsearch { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .exsearch-row { display: flex; gap: 8px; }

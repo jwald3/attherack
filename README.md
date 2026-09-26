@@ -32,6 +32,7 @@ optional Anthropic API. Data lives in a local SQLite file.
 | **Training** | Log sets (exercise, weight, reps, RPE); they're grouped into dated workouts. Search a library of ~870 exercises by name, muscle or equipment, or add your own (the **AI** button fills in muscles and equipment from the name). Click any exercise for its history: best set, estimated 1RM, progression chart, every set by date. |
 | **Cardio** | Log sessions (type, minutes, miles) with weekly and 30-day totals. Click a type (e.g. Running) for its history: distance, time, pace and speed per session, plus best and average pace and a pace chart. |
 | **Bodyweight** | Weigh-ins with a trend chart and start/current/change/min/max stats. |
+| **Progress** | Track body measurements (waist, chest, hips, neck, arms, thighs, calves) with a per-site trend chart, and keep a dated gallery of progress photos. |
 | **Diet** | Log what you ate. A name is enough; notes (portion, brand) and macros (calories, protein, carbs, fat) are optional. Days show macro totals when you've entered them. |
 | **Supplements** | Log doses. Everything you've taken before becomes a one-click button for today, with a 30-day consistency bar for each. |
 
@@ -104,12 +105,14 @@ all backed by your local SQLite database:
 | Training | `list_workouts`, `get_exercise_history`, `search_exercises` | `log_set`, `set_workout_notes`, `create_exercise` |
 | Cardio | `get_cardio_history` | `log_cardio` |
 | Bodyweight | `get_bodyweight_history` | `log_bodyweight` |
+| Measurements | `get_measurement_history` | `log_measurement` |
+| Programs | `list_programs` | `create_program`, `start_program` |
 | Diet | `get_food_history` | `log_food` |
 | Supplements | `get_supplement_history` | `log_supplement` |
 
 A short snapshot of recent activity (last few workouts, this week's cardio,
-latest weigh-in, today's food and supplements) is added to the system prompt,
-so the coach has context before it calls any tool.
+latest weigh-in and body measurements, today's food and supplements) is added
+to the system prompt, so the coach has context before it calls any tool.
 
 The cheaper `claude-haiku-4-5` model writes conversation titles and powers the
 **AI** button on the custom-exercise form.

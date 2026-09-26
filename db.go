@@ -157,6 +157,23 @@ CREATE TABLE IF NOT EXISTS program_exercises (
     rpe        REAL
 );
 CREATE INDEX IF NOT EXISTS idx_prog_ex_program ON program_exercises(program_id);
+CREATE TABLE IF NOT EXISTS measurements (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    date  TEXT NOT NULL,
+    site  TEXT NOT NULL,
+    value REAL NOT NULL,
+    UNIQUE(date, site)
+);
+CREATE INDEX IF NOT EXISTS idx_measurements_site ON measurements(site, date);
+CREATE TABLE IF NOT EXISTS progress_photos (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL,
+    pose       TEXT NOT NULL DEFAULT '',
+    media_type TEXT NOT NULL,
+    data       BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(date);
 `)
 	if err != nil {
 		return err
@@ -267,6 +284,144 @@ func (s *Store) latestBodyweight() (BodyweightEntry, bool) {
 // deleteBodyweight removes the entry for a date.
 func (s *Store) deleteBodyweight(date string) error {
 	_, err := s.db.Exec(`DELETE FROM bodyweight WHERE date = ?`, date)
+	return err
+}
+
+// --- Measurements ---
+
+// Measurement is a single body measurement (a value for a site on a date).
+type Measurement struct {
+	Date  string  `json:"date"`
+	Site  string  `json:"site"`
+	Value float64 `json:"value"`
+}
+
+// logMeasurement records (or replaces) the value for a site on a date.
+func (s *Store) logMeasurement(date, site string, value float64) error {
+	if date == "" {
+		date = today()
+	}
+	_, err := s.db.Exec(`
+INSERT INTO measurements (date, site, value) VALUES (?, ?, ?)
+ON CONFLICT(date, site) DO UPDATE SET value = excluded.value`, date, site, value)
+	return err
+}
+
+// measurementHistory returns dated values for one site as chart points, oldest
+// first (ready for buildChartPoints), limited to the most recent `limit`.
+func (s *Store) measurementHistory(site string, limit int) ([]ChartPoint, error) {
+	if limit <= 0 {
+		limit = 60
+	}
+	rows, err := s.db.Query(`
+SELECT date, value FROM measurements WHERE site = ?
+ORDER BY date DESC LIMIT ?`, site, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var pts []ChartPoint
+	for rows.Next() {
+		var p ChartPoint
+		if err := rows.Scan(&p.Date, &p.Value); err != nil {
+			return nil, err
+		}
+		pts = append(pts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Return oldest-first so callers can render a history list or a chart.
+	for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
+		pts[i], pts[j] = pts[j], pts[i]
+	}
+	return pts, nil
+}
+
+// latestMeasurements returns the most recent value per site, keyed by site slug.
+func (s *Store) latestMeasurements() (map[string]Measurement, error) {
+	rows, err := s.db.Query(`
+SELECT m.date, m.site, m.value FROM measurements m
+JOIN (SELECT site, MAX(date) AS d FROM measurements GROUP BY site) latest
+  ON m.site = latest.site AND m.date = latest.d`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]Measurement{}
+	for rows.Next() {
+		var m Measurement
+		if err := rows.Scan(&m.Date, &m.Site, &m.Value); err != nil {
+			return nil, err
+		}
+		out[m.Site] = m
+	}
+	return out, rows.Err()
+}
+
+// deleteMeasurement removes one site's value on a date.
+func (s *Store) deleteMeasurement(date, site string) error {
+	_, err := s.db.Exec(`DELETE FROM measurements WHERE date = ? AND site = ?`, date, site)
+	return err
+}
+
+// --- Progress photos ---
+
+// ProgressPhoto is a dated body photo. Data is only populated by getProgressPhoto;
+// listing returns metadata only so the blobs aren't loaded into memory at once.
+type ProgressPhoto struct {
+	ID        int64  `json:"id"`
+	Date      string `json:"date"`
+	Pose      string `json:"pose"`
+	MediaType string `json:"media_type"`
+	Data      []byte `json:"-"`
+}
+
+// addProgressPhoto stores a photo and returns its id.
+func (s *Store) addProgressPhoto(date, pose, mediaType string, data []byte) (int64, error) {
+	if date == "" {
+		date = today()
+	}
+	res, err := s.db.Exec(
+		`INSERT INTO progress_photos (date, pose, media_type, data) VALUES (?, ?, ?, ?)`,
+		date, pose, mediaType, data)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// listProgressPhotos returns photo metadata (no bytes), newest first.
+func (s *Store) listProgressPhotos() ([]ProgressPhoto, error) {
+	rows, err := s.db.Query(`
+SELECT id, date, pose, media_type FROM progress_photos
+ORDER BY date DESC, id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProgressPhoto
+	for rows.Next() {
+		var p ProgressPhoto
+		if err := rows.Scan(&p.ID, &p.Date, &p.Pose, &p.MediaType); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// getProgressPhoto loads one photo, bytes included.
+func (s *Store) getProgressPhoto(id int64) (ProgressPhoto, bool) {
+	var p ProgressPhoto
+	err := s.db.QueryRow(`SELECT id, date, pose, media_type, data FROM progress_photos WHERE id = ?`, id).
+		Scan(&p.ID, &p.Date, &p.Pose, &p.MediaType, &p.Data)
+	return p, err == nil
+}
+
+// deleteProgressPhoto removes one photo.
+func (s *Store) deleteProgressPhoto(id int64) error {
+	_, err := s.db.Exec(`DELETE FROM progress_photos WHERE id = ?`, id)
 	return err
 }
 
@@ -1272,6 +1427,18 @@ func (s *Store) summaryContext() string {
 	out := ""
 	if bw, ok := s.latestBodyweight(); ok {
 		out += fmt.Sprintf("Most recent weigh-in: %g (on %s). Full history via get_bodyweight_history.\n\n", bw.Weight, bw.Date)
+	}
+	if latest, err := s.latestMeasurements(); err == nil && len(latest) > 0 {
+		var parts []string
+		// Iterate the fixed site order so the snapshot reads consistently.
+		for _, site := range measurementSites {
+			if m, ok := latest[site.Slug]; ok {
+				parts = append(parts, fmt.Sprintf("%s %g", strings.ToLower(site.Label), m.Value))
+			}
+		}
+		if len(parts) > 0 {
+			out += "Latest body measurements: " + strings.Join(parts, ", ") + ". Full history via get_measurement_history.\n\n"
+		}
 	}
 	if mi, sec, n := s.cardioTotalsSince(daysAgo(7)); n > 0 {
 		out += fmt.Sprintf("Cardio last 7 days: %d sessions, %.1f mi, %d min. Full history via get_cardio_history.\n\n", n, mi, sec/60)
