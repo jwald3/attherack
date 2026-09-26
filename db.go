@@ -662,6 +662,39 @@ func (s *Store) deleteSet(id int64) error {
 	return err
 }
 
+// getSet returns a single set with its workout date, or sql.ErrNoRows.
+func (s *Store) getSet(id int64) (DatedSet, error) {
+	var d DatedSet
+	err := s.db.QueryRow(`
+SELECT w.date, s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe
+FROM sets s JOIN workouts w ON w.id = s.workout_id
+WHERE s.id = ?`, id).
+		Scan(&d.Date, &d.Set.ID, &d.Set.WorkoutID, &d.Set.Exercise, &d.Set.Weight, &d.Set.Reps, &d.Set.RPE)
+	return d, err
+}
+
+// updateSet overwrites the weight, reps and rpe of an existing set. It returns
+// the updated set (with its workout date attached) or sql.ErrNoRows if no set
+// has that id.
+func (s *Store) updateSet(id int64, weight float64, reps int, rpe *float64) (DatedSet, error) {
+	res, err := s.db.Exec(
+		`UPDATE sets SET weight = ?, reps = ?, rpe = ? WHERE id = ?`,
+		weight, reps, rpe, id)
+	if err != nil {
+		return DatedSet{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return DatedSet{}, sql.ErrNoRows
+	}
+	var d DatedSet
+	err = s.db.QueryRow(`
+SELECT w.date, s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe
+FROM sets s JOIN workouts w ON w.id = s.workout_id
+WHERE s.id = ?`, id).
+		Scan(&d.Date, &d.Set.ID, &d.Set.WorkoutID, &d.Set.Exercise, &d.Set.Weight, &d.Set.Reps, &d.Set.RPE)
+	return d, err
+}
+
 // DatedSet is a logged set with its workout date attached.
 type DatedSet struct {
 	Date string
