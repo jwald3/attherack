@@ -1,0 +1,120 @@
+{{define "progress_page.html"}}{{template "head" .}}
+  <main class="bw-page">
+    <div class="bw-layout progress-layout">
+
+      <!-- Measurements -->
+      <section class="panel">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Body measurements</h2>
+        </div>
+        <form class="measure-form" hx-post="/measurements" hx-target="#measure-content" hx-swap="innerHTML">
+          <div class="measure-grid">
+            {{range .Measurements}}
+              <label class="measure-field">
+                <span class="measure-label">{{.Label}}</span>
+                <input type="number" name="{{.Slug}}" step="any" min="0" inputmode="decimal"
+                       placeholder="{{if .HasValue}}{{printf "%g" .Latest}}{{else}}—{{end}}" autocomplete="off">
+              </label>
+            {{end}}
+          </div>
+          <div class="measure-form-foot">
+            <input type="date" name="date" value="{{.Today}}">
+            <button type="submit" class="btn primary">Save measurements</button>
+          </div>
+        </form>
+
+        <div id="measure-content">
+          {{template "measurements_content.html" .}}
+        </div>
+      </section>
+
+      <!-- Progress photos -->
+      <section class="panel">
+        <div class="panel-titlebar">
+          <h2 class="panel-title">Progress photos</h2>
+        </div>
+        <form class="photo-form" id="photo-form"
+              hx-post="/progress/photos" hx-target="#photos-content" hx-swap="innerHTML"
+              hx-encoding="multipart/form-data">
+          <div class="photo-form-row">
+            <input type="file" name="photo" accept="image/*" multiple required>
+            <input type="text" name="pose" placeholder="Pose (front/side/back — optional)" autocomplete="off">
+            <input type="date" name="date" value="{{.Today}}">
+          </div>
+          <div class="photo-form-foot">
+            <button type="submit" class="btn primary">Upload</button>
+          </div>
+        </form>
+
+        <div id="photos-content">
+          {{template "photos_content.html" .}}
+        </div>
+      </section>
+
+    </div>
+  </main>
+{{template "foot" .}}{{end}}
+
+{{define "measurements_content.html"}}
+  {{if not .AnyValues}}
+    <div class="bw-empty-big">No measurements yet. Fill in whichever you took above and save — a trend chart appears once you have two dates for a site.</div>
+  {{else}}
+    <div class="measure-cards">
+      {{range .Measurements}}
+        {{if .HasValue}}
+          {{$slug := .Slug}}
+          <div class="measure-card">
+            <div class="measure-card-head">
+              <span class="measure-card-label">{{.Label}}</span>
+              <span class="measure-card-val">{{printf "%g" .Latest}}<span class="measure-card-on"> as of {{.LatestOn}}</span></span>
+            </div>
+            {{if .Chart.HasData}}
+              <div class="measure-chart">{{.Chart.SVG}}</div>
+              <div class="measure-stats">
+                <span>start {{printf "%g" .Chart.First}}</span>
+                <span>now {{printf "%g" .Chart.Last}}</span>
+                <span>Δ {{if gt .Chart.Change 0.0}}+{{end}}{{printf "%.1f" .Chart.Change}}</span>
+                <span>{{.Chart.Count}} entries</span>
+              </div>
+            {{end}}
+            <details class="measure-history">
+              <summary>History</summary>
+              <div class="bw-list">
+                {{range .History}}
+                  <div class="bw-row">
+                    <span class="bw-row-date">{{.Date}}</span>
+                    <span class="bw-row-wt">{{printf "%g" .Value}}</span>
+                    <button class="btn tiny ghost bw-del"
+                            hx-post="/measurements/{{$slug}}/{{.Date}}/delete"
+                            hx-target="#measure-content" hx-swap="innerHTML"
+                            title="Delete" aria-label="Delete">{{icon "trash"}}</button>
+                  </div>
+                {{end}}
+              </div>
+            </details>
+          </div>
+        {{end}}
+      {{end}}
+    </div>
+  {{end}}
+{{end}}
+
+{{define "photos_content.html"}}
+  {{if .Photos}}
+    <div class="photo-grid">
+      {{range .Photos}}
+        <figure class="photo-item">
+          <img src="/progress/photos/{{.ID}}/img" alt="Progress photo{{if .Pose}} — {{.Pose}}{{end}} on {{.Date}}" loading="lazy">
+          <figcaption class="photo-cap">
+            <span class="photo-date">{{.Date}}</span>{{if .Pose}} <span class="photo-pose">{{.Pose}}</span>{{end}}
+            <button class="btn tiny ghost photo-del"
+                    hx-post="/progress/photos/{{.ID}}/delete" hx-target="#photos-content" hx-swap="innerHTML"
+                    hx-confirm="Delete this photo?" title="Delete" aria-label="Delete">{{icon "trash"}}</button>
+          </figcaption>
+        </figure>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="empty">No photos yet. Upload one above to start your gallery.</div>
+  {{end}}
+{{end}}

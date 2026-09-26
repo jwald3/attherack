@@ -7,6 +7,7 @@ import (
 	"html"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -475,6 +476,180 @@ func (app *App) handleDeleteBodyweight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	app.bodyweightContent(w)
+}
+
+// --- Progress (measurements + photos) ---
+
+// MeasurementView is one site's data for the Progress page: its label/slug, the
+// latest value (if any), a trend chart, and its dated history (newest first).
+type MeasurementView struct {
+	Slug     string
+	Label    string
+	HasValue bool
+	Latest   float64
+	LatestOn string
+	Chart    ChartData
+	History  []ChartPoint // newest first, for the small per-site list
+}
+
+// progressData drives the Progress tab.
+type progressData struct {
+	PageTitle    string
+	Active       string
+	Today        string
+	Measurements []MeasurementView
+	AnyValues    bool
+	Photos       []ProgressPhoto
+}
+
+func (app *App) progressData() progressData {
+	latest, _ := app.store.latestMeasurements()
+	views := make([]MeasurementView, 0, len(measurementSites))
+	anyValues := false
+	for _, site := range measurementSites {
+		v := MeasurementView{Slug: site.Slug, Label: site.Label}
+		pts, _ := app.store.measurementHistory(site.Slug, 60) // oldest first
+		if m, ok := latest[site.Slug]; ok {
+			v.HasValue = true
+			v.Latest = m.Value
+			v.LatestOn = m.Date
+			anyValues = true
+		}
+		v.Chart = buildChartPoints(pts)
+		// History list wants newest first.
+		hist := make([]ChartPoint, len(pts))
+		for i, p := range pts {
+			hist[len(pts)-1-i] = p
+		}
+		v.History = hist
+		views = append(views, v)
+	}
+	photos, _ := app.store.listProgressPhotos()
+	return progressData{
+		PageTitle:    "Progress",
+		Active:       "progress",
+		Today:        today(),
+		Measurements: views,
+		AnyValues:    anyValues,
+		Photos:       photos,
+	}
+}
+
+func (app *App) handleProgressPage(w http.ResponseWriter, r *http.Request) {
+	if err := app.tmpl.ExecuteTemplate(w, "progress_page.html", app.progressData()); err != nil {
+		log.Printf("render progress page: %v", err)
+	}
+}
+
+func (app *App) measurementsContent(w http.ResponseWriter) {
+	if err := app.tmpl.ExecuteTemplate(w, "measurements_content.html", app.progressData()); err != nil {
+		log.Printf("render measurements content: %v", err)
+	}
+}
+
+func (app *App) photosContent(w http.ResponseWriter) {
+	if err := app.tmpl.ExecuteTemplate(w, "photos_content.html", app.progressData()); err != nil {
+		log.Printf("render photos content: %v", err)
+	}
+}
+
+// handleAddMeasurement logs whichever site fields were filled in for a date.
+func (app *App) handleAddMeasurement(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	date := strings.TrimSpace(r.FormValue("date"))
+	if date == "" {
+		date = today()
+	}
+	for _, site := range measurementSites {
+		raw := strings.TrimSpace(r.FormValue(site.Slug))
+		if raw == "" {
+			continue
+		}
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil || v <= 0 {
+			continue
+		}
+		if err := app.store.logMeasurement(date, site.Slug, v); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	app.measurementsContent(w)
+}
+
+func (app *App) handleDeleteMeasurement(w http.ResponseWriter, r *http.Request) {
+	site := r.PathValue("site")
+	date := r.PathValue("date")
+	if err := app.store.deleteMeasurement(date, site); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	app.measurementsContent(w)
+}
+
+// handleAddPhoto stores an uploaded progress photo (multipart) with a date and
+// optional pose, then re-renders the gallery.
+func (app *App) handleAddPhoto(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(maxChatFormBytes); err != nil {
+		http.Error(w, "Upload too large or malformed.", http.StatusBadRequest)
+		return
+	}
+	files := r.MultipartForm.File["photo"]
+	if len(files) == 0 {
+		app.photosContent(w)
+		return
+	}
+	date := strings.TrimSpace(r.FormValue("date"))
+	if date == "" {
+		date = today()
+	}
+	pose := strings.TrimSpace(r.FormValue("pose"))
+	for _, fh := range files {
+		mt, data, err := readUploadedImage(fh)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if data == nil {
+			continue
+		}
+		if _, err := app.store.addProgressPhoto(date, pose, mt, data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("HX-Trigger", "photo-added")
+	app.photosContent(w)
+}
+
+func (app *App) handleDeletePhoto(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := app.store.deleteProgressPhoto(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	app.photosContent(w)
+}
+
+// handleProgressPhoto serves a stored progress photo's bytes.
+func (app *App) handleProgressPhoto(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	p, ok := app.store.getProgressPhoto(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", p.MediaType)
+	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write(p.Data)
 }
 
 // exerciseDetailData drives the exercise-history drawer.
@@ -1132,33 +1307,47 @@ func readChatImages(r *http.Request) ([]ChatImage, error) {
 	}
 	var out []ChatImage
 	for _, fh := range files {
-		if fh.Size > maxChatImageBytes {
-			return nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
-		}
-		f, err := fh.Open()
+		mt, data, err := readUploadedImage(fh)
 		if err != nil {
 			return nil, err
 		}
-		data, err := io.ReadAll(io.LimitReader(f, maxChatImageBytes+1))
-		f.Close()
-		if err != nil {
-			return nil, err
-		}
-		if len(data) == 0 {
-			continue
-		}
-		if len(data) > maxChatImageBytes {
-			return nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
-		}
-		mt := http.DetectContentType(data)
-		switch mt {
-		case "image/jpeg", "image/png", "image/gif", "image/webp":
-		default:
-			return nil, fmt.Errorf("%s isn't a supported image (use JPEG, PNG, GIF or WebP).", fh.Filename)
+		if data == nil {
+			continue // empty file part
 		}
 		out = append(out, ChatImage{MediaType: mt, Data: data})
 	}
 	return out, nil
+}
+
+// readUploadedImage reads one uploaded file, enforces the 5 MB cap, and verifies
+// it's a supported image by content sniff. It returns (mediaType, bytes) or a
+// user-facing error. bytes is nil (with no error) for an empty file part.
+func readUploadedImage(fh *multipart.FileHeader) (string, []byte, error) {
+	if fh.Size > maxChatImageBytes {
+		return "", nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return "", nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxChatImageBytes+1))
+	f.Close()
+	if err != nil {
+		return "", nil, err
+	}
+	if len(data) == 0 {
+		return "", nil, nil
+	}
+	if len(data) > maxChatImageBytes {
+		return "", nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
+	}
+	mt := http.DetectContentType(data)
+	switch mt {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+	default:
+		return "", nil, fmt.Errorf("%s isn't a supported image (use JPEG, PNG, GIF or WebP).", fh.Filename)
+	}
+	return mt, data, nil
 }
 
 // handleChatImage serves an attached photo for display in the conversation.

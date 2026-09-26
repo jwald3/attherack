@@ -181,6 +181,7 @@ You have tools to read and write the user's workout data (sets grouped into date
 - When the user says they took a supplement (creatine, protein, vitamins…), log it with log_supplement. For questions about supplement consistency, call get_supplement_history.
 - When the user describes something they ate or drank, log it with log_food: a plain food name plus any useful detail in notes (portion, how it was prepared, brand). Only fill macros if the user gives them or explicitly asks you to estimate. For diet questions (protein intake, eating patterns, what they ate), call get_food_history first; if macros are missing, reason from the food names and notes and say that your numbers are estimates.
 - For anything about weight loss/gain, body composition, or bodyweight trends, call get_bodyweight_history first. The snapshot below shows only the single most recent weigh-in — it is NOT the full history, so never conclude "only one entry" without calling the tool.
+- When the user gives a body measurement (waist, chest, an arm, etc.), log it with log_measurement. For questions about a measurement trend, call get_measurement_history first. The snapshot shows only the latest value per site, not the full history.
 
 Be concise and practical. Use the user's own units (they give weight as a number; don't assume kg vs lb). Today's date is provided below — use it as the default date for logging unless the user specifies otherwise.
 
@@ -336,6 +337,30 @@ func (a *Agent) tools() []toolDef {
 					"date":   map[string]any{"type": "string", "description": "YYYY-MM-DD; omit for today"},
 				},
 				"required": []string{"weight"},
+			},
+		},
+		{
+			Name:        "log_measurement",
+			Description: "Record a body measurement (e.g. waist, chest, an arm) for a date (defaults to today). Overwrites any existing value for that site and date. Values are plain numbers in the user's own units.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"site":  map[string]any{"type": "string", "enum": measurementSiteSlugs(), "description": "Which body site: waist, chest, hips, neck, arm_l/arm_r, thigh_l/thigh_r, calf_l/calf_r"},
+					"value": map[string]any{"type": "number", "description": "Measurement in the user's units"},
+					"date":  map[string]any{"type": "string", "description": "YYYY-MM-DD; omit for today"},
+				},
+				"required": []string{"site", "value"},
+			},
+		},
+		{
+			Name:        "get_measurement_history",
+			Description: "Get body-measurement history. Give a site for its dated values over time (to analyze a trend); omit site to get the latest value of every site.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"site":  map[string]any{"type": "string", "enum": measurementSiteSlugs(), "description": "Which site to look up; omit for the latest of all sites"},
+					"limit": map[string]any{"type": "integer", "description": "Max entries for a single site (default 60)"},
+				},
 			},
 		},
 		{
@@ -844,6 +869,66 @@ func (a *Agent) runTool(name string, input json.RawMessage) (result string, muta
 			return "", false, err
 		}
 		return fmt.Sprintf("Recorded bodyweight %g on %s.", in.Weight, in.Date), true, nil
+
+	case "log_measurement":
+		var in struct {
+			Site  string  `json:"site"`
+			Value float64 `json:"value"`
+			Date  string  `json:"date"`
+		}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return "", false, err
+		}
+		if !isMeasurementSite(in.Site) {
+			return fmt.Sprintf("Unknown measurement site %q. Valid sites: %s.", in.Site, strings.Join(measurementSiteSlugs(), ", ")), false, nil
+		}
+		if in.Date == "" {
+			in.Date = today()
+		}
+		if err := a.store.logMeasurement(in.Date, in.Site, in.Value); err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("Logged %s %g on %s.", strings.ToLower(measurementLabel(in.Site)), in.Value, in.Date), true, nil
+
+	case "get_measurement_history":
+		var in struct {
+			Site  string `json:"site"`
+			Limit int    `json:"limit"`
+		}
+		_ = json.Unmarshal(input, &in)
+		if in.Site == "" {
+			latest, err := a.store.latestMeasurements()
+			if err != nil {
+				return "", false, err
+			}
+			if len(latest) == 0 {
+				return "No body measurements logged yet.", false, nil
+			}
+			var sb strings.Builder
+			sb.WriteString("Latest measurement per site:\n")
+			for _, site := range measurementSites {
+				if m, ok := latest[site.Slug]; ok {
+					fmt.Fprintf(&sb, "%s: %g (on %s)\n", site.Label, m.Value, m.Date)
+				}
+			}
+			return sb.String(), false, nil
+		}
+		if !isMeasurementSite(in.Site) {
+			return fmt.Sprintf("Unknown measurement site %q. Valid sites: %s.", in.Site, strings.Join(measurementSiteSlugs(), ", ")), false, nil
+		}
+		pts, err := a.store.measurementHistory(in.Site, in.Limit)
+		if err != nil {
+			return "", false, err
+		}
+		if len(pts) == 0 {
+			return fmt.Sprintf("No %s measurements logged yet.", strings.ToLower(measurementLabel(in.Site))), false, nil
+		}
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "%s history (oldest first):\n", measurementLabel(in.Site))
+		for _, p := range pts {
+			fmt.Fprintf(&sb, "%s: %g\n", p.Date, p.Value)
+		}
+		return sb.String(), false, nil
 
 	case "create_exercise":
 		var in struct {
