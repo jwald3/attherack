@@ -2,13 +2,23 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+)
+
+// Limits on photos attached to a chat message. The browser downscales before
+// upload, so these are backstops; the API itself caps images at 5 MB each.
+const (
+	maxChatImages     = 4
+	maxChatImageBytes = 5 << 20
+	maxChatFormBytes  = 24 << 20
 )
 
 // trainingData is the model for the Training tab (log + exercise library).
@@ -1040,12 +1050,25 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 		app.writeChatBubble(w, "assistant", "Chat is disabled. Add your Anthropic API key (API key button, bottom left) to enable Claude.", false)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	r.Body = http.MaxBytesReader(w, r.Body, maxChatFormBytes)
+	if err := r.ParseMultipartForm(maxChatFormBytes); err != nil {
+		// Plain (non-multipart) posts still work, e.g. from tests or curl.
+		if !errors.Is(err, http.ErrNotMultipart) {
+			http.Error(w, "That upload is too large. Try fewer or smaller photos.", http.StatusRequestEntityTooLarge)
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	userMsg := strings.TrimSpace(r.FormValue("message"))
-	if userMsg == "" {
+	images, err := readChatImages(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	if userMsg == "" && len(images) == 0 {
 		return
 	}
 
@@ -1053,7 +1076,11 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	threadID, _ := strconv.ParseInt(r.FormValue("thread_id"), 10, 64)
 	isNew := false
 	if _, ok := app.store.getThread(threadID); !ok {
-		id, err := app.store.createThread(truncateTitle(userMsg, 40))
+		title := truncateTitle(userMsg, 40)
+		if title == "" {
+			title = "Photo"
+		}
+		id, err := app.store.createThread(title)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -1062,7 +1089,12 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	history, _ := app.store.listChatMessages(threadID, 40)
-	_ = app.store.addChatMessage(threadID, "user", userMsg)
+	msgID, err := app.store.addChatMessageWithImages(threadID, "user", userMsg, images)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	saved, _ := app.store.getChatMessage(msgID)
 
 	// Insert a pending assistant reply and generate it in the background, so the
 	// answer completes and is saved even if the user navigates away or reloads.
@@ -1072,7 +1104,7 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	go app.generateReply(agent, threadID, pendingID, history, userMsg, isNew)
+	go app.generateReply(agent, threadID, pendingID, history, userMsg, images, isNew)
 
 	if isNew {
 		// Put the new thread in the URL so reload/back work like a normal page.
@@ -1082,17 +1114,72 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	// authoritatively, then a polling placeholder for the reply. Refresh the
 	// sidebar and thread id out-of-band so follow-ups land in the same thread.
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	app.writeChatBubble(w, "user", userMsg, false)
+	app.writeUserBubble(w, saved)
 	app.writePendingBubble(w, pendingID)
 	w.Write([]byte(`<input type="hidden" name="thread_id" id="thread-id" value="` + strconv.FormatInt(threadID, 10) + `" hx-swap-oob="true">`))
 	app.writeThreadList(w, threadID, true)
 }
 
+// readChatImages pulls the "images" file parts off a multipart chat post,
+// sniffing each one's real type (the browser's claimed type is ignored).
+func readChatImages(r *http.Request) ([]ChatImage, error) {
+	if r.MultipartForm == nil {
+		return nil, nil
+	}
+	files := r.MultipartForm.File["images"]
+	if len(files) > maxChatImages {
+		return nil, fmt.Errorf("You can attach up to %d photos per message.", maxChatImages)
+	}
+	var out []ChatImage
+	for _, fh := range files {
+		if fh.Size > maxChatImageBytes {
+			return nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
+		}
+		f, err := fh.Open()
+		if err != nil {
+			return nil, err
+		}
+		data, err := io.ReadAll(io.LimitReader(f, maxChatImageBytes+1))
+		f.Close()
+		if err != nil {
+			return nil, err
+		}
+		if len(data) == 0 {
+			continue
+		}
+		if len(data) > maxChatImageBytes {
+			return nil, fmt.Errorf("%s is too large (max 5 MB per photo).", fh.Filename)
+		}
+		mt := http.DetectContentType(data)
+		switch mt {
+		case "image/jpeg", "image/png", "image/gif", "image/webp":
+		default:
+			return nil, fmt.Errorf("%s isn't a supported image (use JPEG, PNG, GIF or WebP).", fh.Filename)
+		}
+		out = append(out, ChatImage{MediaType: mt, Data: data})
+	}
+	return out, nil
+}
+
+// handleChatImage serves an attached photo for display in the conversation.
+func (app *App) handleChatImage(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	img, ok := app.store.getChatImage(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", img.MediaType)
+	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write(img.Data)
+}
+
 // generateReply runs the coach's tool-use loop off the request path and writes
 // the result into the pending assistant row. It deliberately uses no request
 // context, so a client disconnect (tab switch, reload, close) never cancels it.
-func (app *App) generateReply(agent *Agent, threadID, pendingID int64, history []ChatMessage, userMsg string, isNew bool) {
-	reply, mutated, err := agent.Chat(history, userMsg)
+func (app *App) generateReply(agent *Agent, threadID, pendingID int64, history []ChatMessage, userMsg string, images []ChatImage, isNew bool) {
+	reply, mutated, err := agent.Chat(history, userMsg, images)
 	status := "done"
 	if err != nil {
 		log.Printf("chat: %v", err)
@@ -1103,6 +1190,9 @@ func (app *App) generateReply(agent *Agent, threadID, pendingID int64, history [
 		log.Printf("chat: save reply: %v", e)
 	}
 	if isNew && status == "done" {
+		if userMsg == "" {
+			userMsg = "(sent a photo)"
+		}
 		if title := agent.TitleFor(userMsg, reply); title != "" {
 			_ = app.store.renameThread(threadID, title)
 		}
@@ -1206,6 +1296,28 @@ func (app *App) writeChatBubble(w http.ResponseWriter, role, content string, mut
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(`<div class="bubble ` + role + ` md"` + trigger + `>` + body + `</div>`))
+}
+
+// writeUserBubble renders a stored user message, thumbnails first.
+func (app *App) writeUserBubble(w http.ResponseWriter, m ChatMessage) {
+	body := imagesHTML(m.Images) + strings.ReplaceAll(html.EscapeString(m.Content), "\n", "<br>")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<div class="bubble user md">` + body + `</div>`))
+}
+
+// imagesHTML renders the thumbnail strip for a message's attached photos.
+func imagesHTML(imgs []ChatImage) string {
+	if len(imgs) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString(`<div class="bubble-images">`)
+	for _, img := range imgs {
+		src := "/chat/img/" + strconv.FormatInt(img.ID, 10)
+		sb.WriteString(`<a href="` + src + `" target="_blank" rel="noopener"><img src="` + src + `" alt="Attached photo" loading="lazy"></a>`)
+	}
+	sb.WriteString(`</div>`)
+	return sb.String()
 }
 
 // writePendingBubble emits the "thinking" placeholder for an in-flight reply.

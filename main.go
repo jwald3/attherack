@@ -72,6 +72,7 @@ func templateFuncs() template.FuncMap {
 		"mph":   fmtSpeed,
 		"pct":   percent,
 		"icon":  icon,
+		"imgs":  func(imgs []ChatImage) template.HTML { return template.HTML(imagesHTML(imgs)) },
 	}
 }
 
@@ -245,6 +246,7 @@ func main() {
 	mux.HandleFunc("POST /bodyweight/{date}/delete", app.handleDeleteBodyweight)
 	mux.HandleFunc("POST /chat", app.handleChat)
 	mux.HandleFunc("GET /chat/msg/{id}", app.handleChatMessage)
+	mux.HandleFunc("GET /chat/img/{id}", app.handleChatImage)
 	mux.HandleFunc("GET /settings", app.handleSettingsFragment)
 	mux.HandleFunc("POST /settings/key", app.handleSaveKey)
 	mux.HandleFunc("POST /settings/key/delete", app.handleClearKey)

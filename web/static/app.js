@@ -215,8 +215,194 @@
   function sendChat() {
     const form = $("#chat-form");
     if (!form || form.dataset.busy === "1" || form.dataset.disabled === "1") return;
+    if (attachments.some((a) => a.busy)) return; // still downscaling a photo
     if (window.htmx) window.htmx.trigger(form, "submit");
   }
+
+  // ---- Photo attachments ----
+  // Photos are downscaled in the browser (longest edge 1568px, JPEG) before
+  // upload: phone photos are often 4-8 MB, the API caps images at 5 MB, and
+  // anything larger than ~1.15 megapixels is resized server-side anyway. The
+  // resized files are written back into the hidden <input type=file> so HTMX
+  // uploads them with the rest of the form.
+  const MAX_ATTACH = 4;
+  const MAX_EDGE = 1568;
+  const attachments = []; // {id, file, url, busy}
+  let attachSeq = 0;
+
+  function syncFileInput() {
+    const input = $("#chat-files");
+    if (!input) return;
+    try {
+      const dt = new DataTransfer();
+      attachments.forEach((a) => {
+        if (!a.busy && a.file) dt.items.add(a.file);
+      });
+      input.files = dt.files;
+    } catch (e) {
+      /* very old browsers: leave the picker's own files in place */
+    }
+  }
+
+  function renderPreviews() {
+    const box = $("#chat-previews");
+    if (!box) return;
+    box.innerHTML = "";
+    box.hidden = attachments.length === 0;
+    attachments.forEach((a) => {
+      const wrap = document.createElement("div");
+      wrap.className = "chat-preview" + (a.busy ? " busy" : "");
+      const img = document.createElement("img");
+      img.src = a.url;
+      img.alt = "";
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "remove";
+      rm.title = "Remove";
+      rm.setAttribute("aria-label", "Remove photo");
+      rm.innerHTML =
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+      rm.addEventListener("click", () => removeAttachment(a.id));
+      wrap.append(img, rm);
+      box.appendChild(wrap);
+    });
+  }
+
+  function removeAttachment(id) {
+    const i = attachments.findIndex((a) => a.id === id);
+    if (i < 0) return;
+    URL.revokeObjectURL(attachments[i].url);
+    attachments.splice(i, 1);
+    renderPreviews();
+    syncFileInput();
+  }
+
+  function clearAttachments() {
+    attachments.forEach((a) => URL.revokeObjectURL(a.url));
+    attachments.length = 0;
+    renderPreviews();
+    syncFileInput();
+  }
+
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  // Returns a File no larger than MAX_EDGE on its longest side. Small JPEG/PNG/
+  // WebP/GIF files pass through untouched; everything else (including HEIC on
+  // browsers that can decode it) is re-encoded as JPEG.
+  async function shrinkImage(file, url) {
+    const passthrough = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    let img;
+    try {
+      img = await loadImage(url);
+    } catch (e) {
+      return file; // undecodable here; let the server decide
+    }
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+    if (scale === 1 && passthrough.includes(file.type) && file.size <= 1.5 * 1024 * 1024) return file;
+    if (file.type === "image/gif" && file.size <= 4 * 1024 * 1024) return file; // keep animation
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.86));
+    if (!blob) return file;
+    const name = (file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg" });
+  }
+
+  async function addFiles(files) {
+    const form = $("#chat-form");
+    if (!form || form.dataset.disabled === "1") return;
+    for (const file of Array.from(files || [])) {
+      if (!file || (!file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name || ""))) continue;
+      if (attachments.length >= MAX_ATTACH) {
+        showChatNotice("You can attach up to " + MAX_ATTACH + " photos per message.");
+        break;
+      }
+      const entry = { id: ++attachSeq, file: null, url: URL.createObjectURL(file), busy: true };
+      attachments.push(entry);
+      renderPreviews();
+      try {
+        entry.file = await shrinkImage(file, entry.url);
+      } catch (e) {
+        entry.file = file;
+      }
+      entry.busy = false;
+      if (attachments.includes(entry)) {
+        renderPreviews();
+        syncFileInput();
+      }
+    }
+    $("#chat-input")?.focus();
+  }
+
+  // Brief inline notice under the composer (limits, upload errors).
+  function showChatNotice(text) {
+    const hint = $(".composer-hint");
+    if (!hint) return;
+    if (!hint.dataset.orig) hint.dataset.orig = hint.textContent;
+    hint.textContent = text;
+    hint.classList.add("chat-err");
+    clearTimeout(showChatNotice.t);
+    showChatNotice.t = setTimeout(() => {
+      hint.textContent = hint.dataset.orig;
+      hint.classList.remove("chat-err");
+    }, 4000);
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#chat-attach") || e.target.closest(".starter-photo")) {
+      const input = $("#chat-files");
+      if (input && !input.disabled) input.click();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.id !== "chat-files") return;
+    // The picker's own selection is replaced by the downscaled copies once
+    // they're ready, so grab the originals first.
+    const picked = Array.from(e.target.files || []);
+    syncFileInput();
+    addFiles(picked);
+  });
+  // Paste a screenshot or a copied image straight into the composer.
+  document.addEventListener("paste", (e) => {
+    if (e.target.id !== "chat-input") return;
+    const items = Array.from(e.clipboardData?.items || []);
+    const files = items.filter((it) => it.kind === "file" && it.type.startsWith("image/")).map((it) => it.getAsFile());
+    if (files.length) {
+      e.preventDefault();
+      addFiles(files);
+    }
+  });
+  // Drag a photo onto the composer.
+  document.addEventListener("dragover", (e) => {
+    const c = e.target.closest?.("#chat-form");
+    if (!c) return;
+    e.preventDefault();
+    c.classList.add("dragover");
+  });
+  document.addEventListener("dragleave", (e) => {
+    const c = e.target.closest?.("#chat-form");
+    if (c && !c.contains(e.relatedTarget)) c.classList.remove("dragover");
+  });
+  document.addEventListener("drop", (e) => {
+    const c = e.target.closest?.("#chat-form");
+    if (!c) return;
+    e.preventDefault();
+    c.classList.remove("dragover");
+    addFiles(e.dataTransfer?.files);
+  });
   document.addEventListener("input", (e) => {
     if (e.target.id === "chat-input") autosize(e.target);
   });
@@ -229,7 +415,7 @@
   // Starter prompts on an empty chat send immediately.
   document.addEventListener("click", (e) => {
     const starter = e.target.closest(".starter");
-    if (!starter) return;
+    if (!starter || starter.classList.contains("starter-photo")) return;
     const input = $("#chat-input");
     input.value = starter.textContent.trim();
     sendChat();
@@ -241,11 +427,13 @@
     const input = $("#chat-input");
     const col = $("#chat-col");
     const val = (input.value || "").trim();
-    if (!val || form.dataset.busy === "1") {
+    const ready = attachments.filter((a) => !a.busy && a.file);
+    if ((!val && ready.length === 0) || form.dataset.busy === "1" || attachments.some((a) => a.busy)) {
       e.preventDefault();
       return;
     }
     form.dataset.busy = "1";
+    form.dataset.lastText = val;
     const empty = col.querySelector(".chat-empty");
     if (empty) empty.remove();
     // Show the user's message right away. The server response re-renders it
@@ -254,13 +442,28 @@
     // polling until the background reply lands).
     const mine = document.createElement("div");
     mine.className = "bubble user optimistic";
-    mine.textContent = val;
+    if (ready.length) {
+      const strip = document.createElement("div");
+      strip.className = "bubble-images";
+      ready.forEach((a) => {
+        const img = document.createElement("img");
+        img.src = a.url;
+        img.alt = "";
+        strip.appendChild(img);
+      });
+      mine.appendChild(strip);
+    }
+    mine.appendChild(document.createTextNode(val));
     col.appendChild(mine);
     scroll();
-    // Clear after htmx has serialized the form.
+    // Clear after htmx has serialized the form. Object URLs stay alive until
+    // the optimistic bubble is replaced by the server's copy.
     setTimeout(() => {
       input.value = "";
       autosize(input);
+      attachments.length = 0;
+      renderPreviews();
+      syncFileInput();
     }, 0);
   });
 
@@ -268,20 +471,31 @@
     if (e.target.id !== "chat-form") return;
     e.target.dataset.busy = "";
     if (!e.detail.successful) {
-      // The POST itself failed (server unreachable): turn the optimistic user
-      // bubble into an inline error instead of leaving it hanging.
-      const opt = $("#chat-col .optimistic");
-      if (opt) {
-        opt.classList.remove("optimistic");
-        const err = document.createElement("div");
-        err.className = "bubble assistant md";
-        err.textContent = "Couldn't reach the server. Try again.";
-        opt.after(err);
+      // The POST itself failed: a rejected upload (4xx with a message) or an
+      // unreachable server. Drop the optimistic bubble, restore the text so
+      // nothing is lost, and say what went wrong.
+      const xhr = e.detail.xhr;
+      const msg =
+        xhr && xhr.status >= 400 && xhr.status < 500 && xhr.responseText && xhr.responseText.length < 300
+          ? xhr.responseText.trim()
+          : "Couldn't reach the server. Try again.";
+      document.querySelectorAll("#chat-col .optimistic").forEach((el) => {
+        el.querySelectorAll("img").forEach((img) => URL.revokeObjectURL(img.src));
+        el.remove();
+      });
+      const input = $("#chat-input");
+      if (input && !input.value) {
+        input.value = e.target.dataset.lastText || "";
+        autosize(input);
       }
+      showChatNotice(msg);
     } else {
       // Success: the server appended the authoritative user bubble and a polling
       // placeholder, so drop our optimistic copy of the user's message.
-      document.querySelectorAll("#chat-col .optimistic").forEach((el) => el.remove());
+      document.querySelectorAll("#chat-col .optimistic").forEach((el) => {
+        el.querySelectorAll("img").forEach((img) => URL.revokeObjectURL(img.src));
+        el.remove();
+      });
     }
     $("#chat-input")?.focus();
     scroll();
