@@ -368,6 +368,19 @@
     }
   });
   document.addEventListener("change", (e) => {
+    // Styled file inputs (.filepick): show the chosen filename(s) next to the
+    // custom button.
+    if (e.target.matches?.('.filepick input[type="file"]')) {
+      const label = e.target.closest(".filepick")?.querySelector(".filepick-name");
+      if (label) {
+        const files = Array.from(e.target.files || []);
+        label.textContent =
+          files.length === 0 ? "" :
+          files.length === 1 ? files[0].name :
+          files.length + " files selected";
+      }
+      return;
+    }
     if (e.target.id !== "chat-files") return;
     // The picker's own selection is replaced by the downscaled copies once
     // they're ready, so grab the originals first.
@@ -583,6 +596,15 @@
       });
     }
     $("#prog-name")?.focus();
+  });
+
+  // After a progress photo uploads, reset the form and clear the filename readout.
+  document.body.addEventListener("photo-added", () => {
+    const form = $("#photo-form");
+    if (!form) return;
+    form.reset();
+    const name = form.querySelector(".filepick-name");
+    if (name) name.textContent = "";
   });
 
   // When a custom exercise is added, reset the form, refresh search results so
