@@ -97,7 +97,7 @@ reads it on startup; real environment variables take priority).
 ## How the coach works
 
 Each message runs a standard Anthropic tool-use loop
-([`claude.go`](claude.go)) using `claude-opus-4-8`. The coach has these tools,
+([`internal/coach`](internal/coach)) using `claude-opus-4-8`. The coach has these tools,
 all backed by your local SQLite database:
 
 | Area | Read | Write |
@@ -127,23 +127,33 @@ attach, plus whatever the coach's tools read to answer them.
 
 ## Project layout
 
+`main.go` only reads flags and config and wires the pieces together; the app
+itself lives in `internal/`, one package per concern. Dependencies point one
+way: `server` and `coach` use `store` and `exercise`, never the reverse.
+
 ```
-main.go           entry point: flags, .env loading, routes, template helpers
-db.go             SQLite schema, migrations and all queries
-handlers.go       HTTP handlers for every page and HTMX fragment
-claude.go         Anthropic API client, coach tools and the tool-use loop
-exercises.go      embedded exercise library and search
-chart.go          server-rendered SVG line charts
-markdown.go       small, safe Markdown renderer for coach replies (incl. tables)
-importer.go       ChimpFitness CSV importers
-seed.go           -seed-demo fake data
-*_test.go         unit tests (go test ./...)
-e2e/              browser end-to-end tests (Playwright) with a fake Claude API
-data/             exercises.json from free-exercise-db
-docs/screenshots/ README images (captured from -seed-demo data)
-web/templates/    one template per page (coach, training, cardio, ...)
-web/static/       style.css, app.js, vendored htmx.min.js
+main.go               entry point: flags, imports/seed, start the server
+internal/
+  config/             environment and .env loading
+  store/              SQLite schema, migrations and queries, one file per domain
+  exercise/           embedded exercise library (exercises.json) and search
+  coach/              Anthropic API client, the tool-use loop, and the coach's
+                      tools (tools_*.go, grouped by domain)
+  server/             HTTP routes and handlers, one file per tab
+  chart/              server-rendered SVG line charts
+  markdown/           small, safe Markdown renderer for coach replies (incl. tables)
+  importer/           ChimpFitness CSV importers
+  seed/               -seed-demo fake data
+  dates/              YYYY-MM-DD date helpers
+web/
+  assets.go           embeds the two folders below into the binary
+  templates/          one template per page (coach, training, cardio, ...)
+  static/             style.css, app.js, vendored htmx.min.js
+e2e/                  browser end-to-end tests (Playwright) with a fake Claude API
+docs/screenshots/     README images (captured from -seed-demo data)
 ```
+
+Unit tests sit next to the code they test (`go test ./...`).
 
 Templates and static files are compiled into the binary with `go:embed`, so
 restart (or re-run `go run .`) after editing them.
