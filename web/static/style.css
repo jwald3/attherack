@@ -85,6 +85,9 @@ html, body { max-width: 100%; overflow-x: hidden; }
   min-height: 0;
 }
 .panel.grow { flex: 1; overflow: hidden; }
+/* Fixed-size panels (like the set form) keep their height; only .grow panels
+   give up space when a column is short. */
+.col > .panel:not(.grow) { flex-shrink: 0; }
 .panel-title { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; }
 .panel-titlebar { display: flex; align-items: center; justify-content: space-between; }
 .panel-titlebar .panel-title { margin-bottom: 12px; }
@@ -847,6 +850,14 @@ select:focus { border-color: var(--accent-dim); }
   .layout { height: calc(100dvh - 49px); }
   .coach { height: calc(100dvh - 49px); }
   .bw-page { height: calc(100dvh - 49px); }
+}
+
+/* Once the columns stack (≤900px) the page scrolls as a whole, so the layout
+   must grow with its content. This has to come after the dvh rule above, which
+   would otherwise pin it to the viewport height: the stacked columns then
+   split that height and the History panel's min-height covers the set form. */
+@media (max-width: 900px) {
+  .layout { height: auto; }
 }
 
 @media (max-width: 640px) {

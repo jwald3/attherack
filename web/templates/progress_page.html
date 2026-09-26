@@ -18,7 +18,7 @@
             {{end}}
           </div>
           <div class="measure-form-foot">
-            <input type="date" name="date" value="{{.Today}}">
+            <input type="date" name="date" aria-label="Date" value="{{.Today}}">
             <button type="submit" class="btn primary">Save measurements</button>
           </div>
         </form>
@@ -43,7 +43,7 @@
           </label>
           <div class="photo-form-row">
             <input type="text" name="pose" placeholder="Pose (front/side/back — optional)" autocomplete="off">
-            <input type="date" name="date" value="{{.Today}}">
+            <input type="date" name="date" aria-label="Date" value="{{.Today}}">
           </div>
           <div class="photo-form-foot">
             <button type="submit" class="btn primary">Upload</button>

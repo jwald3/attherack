@@ -14,7 +14,7 @@
               <option value="snack"{{if eq .Meal "snack"}} selected{{end}}>Snack</option>
               <option value="">(none)</option>
             </select>
-            <input type="date" name="date" value="{{.Today}}">
+            <input type="date" name="date" aria-label="Date" value="{{.Today}}">
           </div>
           <div class="diet-row">
             <input type="text" name="notes" placeholder="Notes (optional): portion, brand, how it was made…" autocomplete="off">

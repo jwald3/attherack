@@ -6,7 +6,7 @@
           <h2 class="panel-title">Bodyweight trend</h2>
           <form class="bw-form inline" hx-post="/bodyweight" hx-target="#bw-content" hx-swap="innerHTML">
             <input type="number" name="weight" placeholder="Weight" step="any" inputmode="decimal" required>
-            <input type="date" name="date" value="{{.Today}}">
+            <input type="date" name="date" aria-label="Date" value="{{.Today}}">
             <button type="submit" class="btn primary small">Log</button>
           </form>
         </div>
