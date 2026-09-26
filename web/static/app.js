@@ -517,6 +517,15 @@
     scroll();
   });
 
+  // On phones the conversation list slides over the page and covers its own
+  // toggle button, so a tap anywhere outside the open panel closes it.
+  document.addEventListener("click", (e) => {
+    const side = $("#coach-side");
+    if (!side || !side.classList.contains("open")) return;
+    if (side.contains(e.target) || e.target.closest(".side-toggle")) return;
+    side.classList.remove("open");
+  });
+
   // Keep the header title in sync with the sidebar (new chats get a title
   // from the server after the first reply; renames update it too).
   function syncTitle() {

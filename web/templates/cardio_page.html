@@ -8,7 +8,7 @@
             <input type="text" name="type" placeholder="Cardio type" list="cardio-types" autocomplete="off" required>
             <input type="number" name="minutes" placeholder="Min" step="any" inputmode="decimal">
             <input type="number" name="miles" placeholder="Miles" step="any" inputmode="decimal">
-            <input type="date" name="date" value="{{.Today}}">
+            <input type="date" name="date" aria-label="Date" value="{{.Today}}">
             <button type="submit" class="btn primary small">Log</button>
           </form>
           <datalist id="cardio-types">
