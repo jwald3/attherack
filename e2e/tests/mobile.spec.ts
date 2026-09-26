@@ -15,16 +15,57 @@ for (const path of PAGES) {
     await page.goto(path);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
-    // iOS zooms into inputs under 16px; every visible form control is 16px+.
-    const small = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("input, select, textarea"))
-        .filter((el) => (el as HTMLElement).offsetParent !== null && (el as HTMLInputElement).type !== "hidden")
-        .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 16)
-        .map((el) => `${el.tagName.toLowerCase()}[name=${el.getAttribute("name")}]`),
-    );
-    expect(small).toEqual([]);
+    const problems = await page.evaluate(() => {
+      const out: string[] = [];
+      const vw = document.documentElement.clientWidth;
+      const visible = (el: Element) => (el as HTMLElement).offsetParent !== null && getComputedStyle(el).visibility !== "hidden";
+      const label = (el: Element) => `${el.tagName.toLowerCase()}[${el.getAttribute("name") || el.textContent!.trim().slice(0, 20)}]`;
+      for (const el of document.querySelectorAll("main input, main select, main textarea, main button")) {
+        if (!visible(el) || (el as HTMLInputElement).type === "hidden" || (el as HTMLInputElement).type === "file") continue;
+        // iOS zooms into inputs under 16px.
+        if (!(el instanceof HTMLButtonElement) && parseFloat(getComputedStyle(el).fontSize) < 16) out.push(`under 16px: ${label(el)}`);
+        // Nothing may be pushed past the right edge (clipped, not scrollable).
+        if (el.closest(".ch-table")) continue; // the cardio mini-table scrolls sideways by design
+        if (el.closest(".coach-side:not(.open)")) continue; // the closed drawer is off-screen by design
+        const r = el.getBoundingClientRect();
+        if (r.right > vw + 1 || r.left < -1) out.push(`off-screen: ${label(el)} (${Math.round(r.left)}–${Math.round(r.right)} of ${vw})`);
+      }
+      return out;
+    });
+    expect(problems).toEqual([]);
+
+    // The current tab is scrolled into view in the sideways tab strip.
+    await expect(page.locator(".tab.active")).toBeInViewport({ ratio: 0.9 });
   });
 }
+
+for (const path of ["/", "/cardio", "/bodyweight", "/progress", "/diet", "/supplements"]) {
+  test(`${path} doesn't scroll the page itself (only its content area)`, async ({ page }) => {
+    await page.goto(path);
+    // Full-height pages subtract the top bar; a wrong height makes the whole
+    // page scroll a little and pushes the bottom (e.g. the chat composer) out.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
+  });
+}
+
+test("the coach composer sits fully on screen", async ({ page }) => {
+  await page.goto("/");
+  const box = (await page.locator("#chat-form").boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  // The desktop keyboard hint is hidden on phones.
+  await expect(page.locator(".composer-hint")).toBeHidden();
+});
+
+test("Training keeps the set form on the first screen and the library close by", async ({ page }) => {
+  await page.goto("/training");
+  await expect(page.getByRole("button", { name: "Add set" })).toBeInViewport();
+  // History scrolls inside its panel instead of growing with every workout.
+  const history = page.locator(".col-log > .panel.grow");
+  const vh = page.viewportSize()!.height;
+  expect((await history.boundingBox())!.height).toBeLessThanOrEqual(vh * 0.7 + 1);
+  // The filter chips start collapsed so the library isn't a screen of chips.
+  await expect(page.locator("details.facets")).not.toHaveAttribute("open");
+});
 
 test("the coach's conversation list is a slide-out panel", async ({ page, request }) => {
   await resetFake(request);
@@ -35,6 +76,8 @@ test("the coach's conversation list is a slide-out panel", async ({ page, reques
   expect(await inView()).toBe(false);
   await page.locator(".side-toggle").tap();
   await expect.poll(inView).toBe(true);
+  // It's a full-height drawer, not tucked under a header of a guessed height.
+  expect((await side.boundingBox())!.y).toBe(0);
   // The open panel covers the toggle, so a tap beside it closes it.
   const vw = page.viewportSize()!;
   await page.touchscreen.tap(vw.width - 20, vw.height / 2);

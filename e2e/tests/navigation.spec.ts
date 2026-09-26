@@ -27,6 +27,9 @@ test("every tab loads cleanly and is reachable from the nav", async ({ page }) =
     await expect(page.locator(".tab.active")).toHaveText(tab.name);
     await expect(page.locator(tab.heading).first()).toBeVisible();
     await expect(page).toHaveTitle(tab.name === "Coach" ? "At The Rack — Coach" : `At The Rack — ${tab.name}`);
+    // Full-height pages end inside the window (none of it clipped under the fold).
+    const bottom = await page.locator("main").evaluate((m) => m.getBoundingClientRect().bottom);
+    expect(bottom).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
   }
   // Styles and scripts are served from the embedded assets.
   expect(await page.evaluate(() => typeof (window as any).htmx)).toBe("object");
