@@ -25,7 +25,14 @@
       <div id="chat-scroll" class="chat-scroll">
         <div class="chat-col" id="chat-col">
           {{range .Messages}}
-            <div class="bubble {{.Role}} md">{{if eq .Role "assistant"}}{{.Content | md}}{{else}}{{.Content | nl2br}}{{end}}</div>
+            {{if .Pending}}
+              <div class="bubble assistant pending"
+                   hx-get="/chat/msg/{{.ID}}" hx-trigger="load delay:1500ms"
+                   hx-swap="outerHTML" hx-target="this">
+                <span class="typing"><i></i><i></i><i></i></span></div>
+            {{else}}
+              <div class="bubble {{.Role}} md">{{if eq .Role "assistant"}}{{.Content | md}}{{else}}{{.Content | nl2br}}{{end}}</div>
+            {{end}}
           {{else}}
             <div class="chat-empty">
               <div class="chat-hello">What are we working on today?</div>

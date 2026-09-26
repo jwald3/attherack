@@ -352,6 +352,11 @@ func (a *Agent) tools() []toolDef {
 func (a *Agent) Chat(history []ChatMessage, userMsg string) (reply string, mutated bool, err error) {
 	msgs := make([]apiMessage, 0, len(history)+1)
 	for _, m := range history {
+		// Skip placeholder replies still being generated (or failed): they have
+		// no usable text and the API rejects empty assistant turns.
+		if m.Role == "assistant" && (m.Status == "pending" || strings.TrimSpace(m.Content) == "") {
+			continue
+		}
 		msgs = append(msgs, apiMessage{
 			Role:    m.Role,
 			Content: []contentPart{{Type: "text", Text: m.Content}},

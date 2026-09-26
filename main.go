@@ -60,6 +60,21 @@ func (a *App) clearKey() {
 	a.agent = nil
 }
 
+// templateFuncs returns the helper functions available in every template.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"deref": strDeref,
+		"nl2br": nl2br,
+		"md":    renderMarkdown,
+		"dur":   fmtDuration,
+		"pace":  fmtPace,
+		"hms":   fmtClock,
+		"mph":   fmtSpeed,
+		"pct":   percent,
+		"icon":  icon,
+	}
+}
+
 func (a *App) getAgent() *Agent {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -176,17 +191,7 @@ func main() {
 	lib.Add(custom...)
 	log.Printf("loaded %d exercises (%d built-in, %d custom)", lib.Count(), lib.Count()-len(custom), len(custom))
 
-	tmpl, err := template.New("").Funcs(template.FuncMap{
-		"deref": strDeref,
-		"nl2br": nl2br,
-		"md":    renderMarkdown,
-		"dur":   fmtDuration,
-		"pace":  fmtPace,
-		"hms":   fmtClock,
-		"mph":   fmtSpeed,
-		"pct":   percent,
-		"icon":  icon,
-	}).ParseFS(templateFS, "web/templates/*.html")
+	tmpl, err := template.New("").Funcs(templateFuncs()).ParseFS(templateFS, "web/templates/*.html")
 	if err != nil {
 		log.Fatalf("parse templates: %v", err)
 	}
@@ -235,6 +240,7 @@ func main() {
 	mux.HandleFunc("POST /bodyweight", app.handleAddBodyweight)
 	mux.HandleFunc("POST /bodyweight/{date}/delete", app.handleDeleteBodyweight)
 	mux.HandleFunc("POST /chat", app.handleChat)
+	mux.HandleFunc("GET /chat/msg/{id}", app.handleChatMessage)
 	mux.HandleFunc("GET /settings", app.handleSettingsFragment)
 	mux.HandleFunc("POST /settings/key", app.handleSaveKey)
 	mux.HandleFunc("POST /settings/key/delete", app.handleClearKey)

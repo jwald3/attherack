@@ -248,16 +248,14 @@
     form.dataset.busy = "1";
     const empty = col.querySelector(".chat-empty");
     if (empty) empty.remove();
-    // Show the message right away plus a "thinking" placeholder; the server
-    // response re-renders both authoritatively.
+    // Show the user's message right away. The server response re-renders it
+    // authoritatively and appends its own polling "thinking" placeholder, so we
+    // don't add a pending bubble here (that now comes from the server and keeps
+    // polling until the background reply lands).
     const mine = document.createElement("div");
     mine.className = "bubble user optimistic";
     mine.textContent = val;
     col.appendChild(mine);
-    const pending = document.createElement("div");
-    pending.className = "bubble assistant pending";
-    pending.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
-    col.appendChild(pending);
     scroll();
     // Clear after htmx has serialized the form.
     setTimeout(() => {
@@ -269,17 +267,22 @@
   document.body.addEventListener("htmx:afterRequest", (e) => {
     if (e.target.id !== "chat-form") return;
     e.target.dataset.busy = "";
-    document.querySelectorAll("#chat-col .pending, #chat-col .optimistic").forEach((el) => {
-      if (!e.detail.successful) {
-        // Keep the user's text visible and explain what happened.
-        if (el.classList.contains("pending")) {
-          el.classList.remove("pending");
-          el.textContent = "Couldn't reach the server. Try again.";
-        }
-        return;
+    if (!e.detail.successful) {
+      // The POST itself failed (server unreachable): turn the optimistic user
+      // bubble into an inline error instead of leaving it hanging.
+      const opt = $("#chat-col .optimistic");
+      if (opt) {
+        opt.classList.remove("optimistic");
+        const err = document.createElement("div");
+        err.className = "bubble assistant md";
+        err.textContent = "Couldn't reach the server. Try again.";
+        opt.after(err);
       }
-      el.remove();
-    });
+    } else {
+      // Success: the server appended the authoritative user bubble and a polling
+      // placeholder, so drop our optimistic copy of the user's message.
+      document.querySelectorAll("#chat-col .optimistic").forEach((el) => el.remove());
+    }
     $("#chat-input")?.focus();
     scroll();
   });

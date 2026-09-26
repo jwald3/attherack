@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     role       TEXT NOT NULL,
     content    TEXT NOT NULL,
+    status     TEXT NOT NULL DEFAULT 'done', -- 'pending' | 'done' | 'error'
+    mutated    INTEGER NOT NULL DEFAULT 0,    -- assistant reply touched the log
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS chat_threads (
@@ -134,7 +136,34 @@ CREATE TABLE IF NOT EXISTS custom_exercises (
 	if err != nil {
 		return err
 	}
-	return s.migrateChatThreads()
+	if err := s.migrateChatThreads(); err != nil {
+		return err
+	}
+	return s.migrateChatStatus()
+}
+
+// migrateChatStatus adds the status/mutated columns to chat_messages for
+// databases created before background replies existed. Any pre-existing row
+// is already a finished message, so it defaults to 'done'.
+func (s *Store) migrateChatStatus() error {
+	for col, def := range map[string]string{
+		"status":  "TEXT NOT NULL DEFAULT 'done'",
+		"mutated": "INTEGER NOT NULL DEFAULT 0",
+	} {
+		var n int
+		if err := s.db.QueryRow(`SELECT COUNT(1) FROM pragma_table_info('chat_messages') WHERE name = ?`, col).Scan(&n); err != nil {
+			return err
+		}
+		if n == 0 {
+			if _, err := s.db.Exec(`ALTER TABLE chat_messages ADD COLUMN ` + col + ` ` + def); err != nil {
+				return err
+			}
+		}
+	}
+	// A reply left 'pending' by a crash mid-generation can never complete;
+	// mark such orphans as errored so the UI stops waiting on them.
+	_, err := s.db.Exec(`UPDATE chat_messages SET status = 'error', content = 'This reply was interrupted. Please ask again.' WHERE status = 'pending'`)
+	return err
 }
 
 // --- Settings (key/value) ---
@@ -765,8 +794,13 @@ type ChatMessage struct {
 	ThreadID  int64  `json:"thread_id"`
 	Role      string `json:"role"` // "user" or "assistant"
 	Content   string `json:"content"`
+	Status    string `json:"status"` // "pending" | "done" | "error"
+	Mutated   bool   `json:"mutated"`
 	CreatedAt string `json:"created_at"`
 }
+
+// Pending reports whether an assistant reply is still being generated.
+func (m ChatMessage) Pending() bool { return m.Status == "pending" }
 
 // migrateChatThreads adds thread support to databases created before threads
 // existed, moving any old single-stream chat into one "Earlier chat" thread.
@@ -856,13 +890,50 @@ func (s *Store) addChatMessage(threadID int64, role, content string) error {
 	return err
 }
 
+// addPendingAssistant inserts a placeholder assistant reply that a background
+// goroutine will fill in later, and returns its id so the UI can poll for it.
+func (s *Store) addPendingAssistant(threadID int64) (int64, error) {
+	res, err := s.db.Exec(
+		`INSERT INTO chat_messages (thread_id, role, content, status) VALUES (?, 'assistant', '', 'pending')`,
+		threadID)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := s.db.Exec(`UPDATE chat_threads SET updated_at = datetime('now') WHERE id = ?`, threadID); err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// finishChatMessage fills in a pending assistant reply with its final content
+// and status ('done' or 'error').
+func (s *Store) finishChatMessage(id int64, content, status string, mutated bool) error {
+	m := 0
+	if mutated {
+		m = 1
+	}
+	_, err := s.db.Exec(
+		`UPDATE chat_messages SET content = ?, status = ?, mutated = ? WHERE id = ?`,
+		content, status, m, id)
+	return err
+}
+
+// getChatMessage returns one message by id.
+func (s *Store) getChatMessage(id int64) (ChatMessage, bool) {
+	var m ChatMessage
+	err := s.db.QueryRow(
+		`SELECT id, thread_id, role, content, status, mutated, created_at FROM chat_messages WHERE id = ?`, id).
+		Scan(&m.ID, &m.ThreadID, &m.Role, &m.Content, &m.Status, &m.Mutated, &m.CreatedAt)
+	return m, err == nil
+}
+
 // listChatMessages returns the most recent messages in a thread, oldest first.
 func (s *Store) listChatMessages(threadID int64, limit int) ([]ChatMessage, error) {
 	if limit <= 0 {
 		limit = 100
 	}
 	rows, err := s.db.Query(`
-SELECT id, thread_id, role, content, created_at FROM chat_messages
+SELECT id, thread_id, role, content, status, mutated, created_at FROM chat_messages
 WHERE thread_id = ? ORDER BY id DESC LIMIT ?`, threadID, limit)
 	if err != nil {
 		return nil, err
@@ -871,7 +942,7 @@ WHERE thread_id = ? ORDER BY id DESC LIMIT ?`, threadID, limit)
 	var msgs []ChatMessage
 	for rows.Next() {
 		var m ChatMessage
-		if err := rows.Scan(&m.ID, &m.ThreadID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ThreadID, &m.Role, &m.Content, &m.Status, &m.Mutated, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
