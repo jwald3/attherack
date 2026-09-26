@@ -924,30 +924,70 @@ func (app *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	history, _ := app.store.listChatMessages(threadID, 40)
 	_ = app.store.addChatMessage(threadID, "user", userMsg)
 
-	reply, mutated, err := agent.Chat(history, userMsg)
+	// Insert a pending assistant reply and generate it in the background, so the
+	// answer completes and is saved even if the user navigates away or reloads.
+	// The UI polls /chat/msg/{id} until it flips to done/error.
+	pendingID, err := app.store.addPendingAssistant(threadID)
 	if err != nil {
-		log.Printf("chat: %v", err)
-		reply = "Something went wrong talking to Claude: " + err.Error()
-	} else {
-		_ = app.store.addChatMessage(threadID, "assistant", reply)
-		if isNew {
-			if title := agent.TitleFor(userMsg, reply); title != "" {
-				_ = app.store.renameThread(threadID, title)
-			}
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	go app.generateReply(agent, threadID, pendingID, history, userMsg, isNew)
 
 	if isNew {
 		// Put the new thread in the URL so reload/back work like a normal page.
 		w.Header().Set("HX-Push-Url", "/c/"+strconv.FormatInt(threadID, 10))
 	}
-	// The user bubble was shown optimistically client-side; re-render both so
-	// history stays authoritative. Then refresh the sidebar and thread id
-	// out-of-band so follow-ups land in the same thread.
+	// The user bubble was shown optimistically client-side; re-render it
+	// authoritatively, then a polling placeholder for the reply. Refresh the
+	// sidebar and thread id out-of-band so follow-ups land in the same thread.
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	app.writeChatBubble(w, "user", userMsg, false)
-	app.writeChatBubble(w, "assistant", reply, mutated)
+	app.writePendingBubble(w, pendingID)
 	w.Write([]byte(`<input type="hidden" name="thread_id" id="thread-id" value="` + strconv.FormatInt(threadID, 10) + `" hx-swap-oob="true">`))
 	app.writeThreadList(w, threadID, true)
+}
+
+// generateReply runs the coach's tool-use loop off the request path and writes
+// the result into the pending assistant row. It deliberately uses no request
+// context, so a client disconnect (tab switch, reload, close) never cancels it.
+func (app *App) generateReply(agent *Agent, threadID, pendingID int64, history []ChatMessage, userMsg string, isNew bool) {
+	reply, mutated, err := agent.Chat(history, userMsg)
+	status := "done"
+	if err != nil {
+		log.Printf("chat: %v", err)
+		reply = "Something went wrong talking to Claude: " + err.Error()
+		status = "error"
+	}
+	if e := app.store.finishChatMessage(pendingID, reply, status, mutated); e != nil {
+		log.Printf("chat: save reply: %v", e)
+	}
+	if isNew && status == "done" {
+		if title := agent.TitleFor(userMsg, reply); title != "" {
+			_ = app.store.renameThread(threadID, title)
+		}
+	}
+}
+
+// handleChatMessage is the poll endpoint for a single assistant reply. While the
+// reply is pending it returns the same placeholder (which keeps polling); once
+// it's done or errored it returns the final bubble with no poll trigger, so
+// polling stops, plus an out-of-band sidebar refresh to pick up a new title.
+func (app *App) handleChatMessage(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	m, ok := app.store.getChatMessage(id)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if m.Pending() {
+		app.writePendingBubble(w, id)
+		return
+	}
+	app.writeChatBubble(w, "assistant", m.Content, m.Mutated)
+	// The thread may have just been auto-titled; refresh the sidebar so it shows.
+	app.writeThreadList(w, m.ThreadID, true)
 }
 
 // --- Settings / API key ---
@@ -1026,4 +1066,16 @@ func (app *App) writeChatBubble(w http.ResponseWriter, role, content string, mut
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(`<div class="bubble ` + role + ` md"` + trigger + `>` + body + `</div>`))
+}
+
+// writePendingBubble emits the "thinking" placeholder for an in-flight reply.
+// It polls GET /chat/msg/{id} every 1.5s and replaces itself with the result;
+// because it re-renders from the database, it resumes automatically after a
+// reload or when the user returns to the tab. The id lets the poller find it.
+func (app *App) writePendingBubble(w http.ResponseWriter, id int64) {
+	sid := strconv.FormatInt(id, 10)
+	w.Write([]byte(`<div class="bubble assistant pending" ` +
+		`hx-get="/chat/msg/` + sid + `" hx-trigger="load delay:1500ms" ` +
+		`hx-swap="outerHTML" hx-target="this">` +
+		`<span class="typing"><i></i><i></i><i></i></span></div>`))
 }
