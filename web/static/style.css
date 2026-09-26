@@ -31,6 +31,8 @@ html, body {
   font-size: 14px;
   line-height: 1.45;
 }
+/* Never let a stray wide element scroll the whole page sideways on mobile. */
+html, body { max-width: 100%; overflow-x: hidden; }
 
 /* ---- top bar ---- */
 .topbar {
@@ -47,7 +49,7 @@ html, body {
 .brand-name { font-weight: 700; letter-spacing: -0.02em; font-size: 16px; white-space: nowrap; }
 .topbar-sub { color: var(--text-faint); font-size: 12px; font-family: var(--mono); margin-left: auto; }
 
-.tabs { display: flex; gap: 4px; margin-left: 8px; }
+.tabs { display: flex; gap: 4px; margin-left: 8px; min-width: 0; }
 .tab {
   text-decoration: none;
   color: var(--text-dim);
@@ -71,7 +73,7 @@ html, body {
   overflow: hidden;
 }
 .layout-2 { grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.3fr); }
-.col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.col { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
 
 .panel {
   background: var(--bg-panel);
@@ -670,4 +672,90 @@ input[type="password"]:focus { border-color: var(--accent-dim); }
   .layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
   body { height: auto; }
   .panel.grow { min-height: 320px; }
+}
+
+/* ---- phones ---- */
+@media (max-width: 640px) {
+  /* Top bar: keep the brand fixed and let the tab strip scroll sideways so all
+     tabs stay reachable instead of being clipped off the right edge. */
+  .topbar { gap: 10px; padding: 10px 12px; }
+  .topbar-sub { display: none; }
+  .tabs {
+    margin-left: 0;
+    overflow-x: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; }
+
+  /* Tighter page padding on small screens. */
+  .layout { padding: 10px; gap: 10px; }
+  .panel { padding: 12px; min-width: 0; }
+  .col > * { min-width: 0; }
+  /* Belt-and-braces: clip any residual sideways bleed at the page container. */
+  .layout, .coach, .bw-page { max-width: 100%; overflow-x: hidden; }
+
+  /* Any form laid out as a horizontal row stacks and fills the width; kill the
+     fixed pixel widths that were forcing horizontal overflow. */
+  .addset-row,
+  .cardio-form,
+  .diet-row,
+  .supp-form,
+  .prog-row,
+  .key-form-row {
+    flex-wrap: wrap;
+  }
+  .cardio-form input[type="text"],
+  .cardio-form input[type="number"],
+  .cardio-form input[type="date"],
+  .diet-row select,
+  .diet-row input[type="date"],
+  .diet-row > input[type="text"],
+  .diet-row input[type="number"],
+  .supp-form input[type="text"][name="name"],
+  .supp-form input.supp-amount,
+  .supp-form .supp-unit {
+    width: 100% !important;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  /* Program builder row: exercise takes the full width, the numeric targets
+     share a line beneath it, and the remove button stays put. */
+  .prog-row { gap: 6px; }
+  .prog-row input[name="exercise"] { flex: 1 1 100%; }
+  .prog-row input[name="sets"],
+  .prog-row input[name="reps"],
+  .prog-row input[name="weight"],
+  .prog-row input[name="rpe"] { flex: 1 1 0; min-width: 0; }
+
+  /* Coach: keep the empty-state and starter chips within the viewport. */
+  .chat-empty { margin-top: 8vh; padding: 0 4px; }
+  .chat-hello { font-size: 20px; }
+  .starters { grid-template-columns: 1fr; }
+
+  /* Bodyweight/cardio stat grids: two per row reads better than three on a
+     narrow phone. */
+  .bw-stats,
+  .cardio-stats { grid-template-columns: repeat(2, 1fr); }
+  .bw-page { padding: 14px; }
+
+  /* Supplement consistency rows: drop the fixed name column so the bar fits. */
+  .supp-cons-row { grid-template-columns: minmax(70px, 1fr) 1.4fr 44px; gap: 8px; }
+
+  /* History/log table: let long exercise names truncate instead of pushing the
+     numeric column off-screen. */
+  table.sets { table-layout: fixed; }
+  .s-ex { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .s-ex .ex-link { display: inline; }
+
+  /* Cardio history mini-table can be dense; allow it to scroll inside its box. */
+  .ch-table { overflow-x: auto; }
+  .ch-row { min-width: 340px; }
+
+  /* Food rows: notes/macros wrap under the name instead of overflowing. */
+  .food-macros { white-space: normal; }
 }
