@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -127,6 +128,7 @@ const systemPrompt = `You are a knowledgeable, encouraging strength & conditioni
 
 You have tools to read and write the user's workout data (sets grouped into dated workouts) and to search an exercise database of ~870 movements. Prefer calling tools over guessing:
 - When the user reports doing an exercise, log it with log_set.
+- To fix a mistake in an already-logged set (wrong reps/weight/rpe), don't log a duplicate: call get_exercise_history to find the set's id, then update_set to correct it or delete_set to remove a stray entry. Confirm which set you're changing if there's any ambiguity.
 - When asked how they're trending or about a specific lift, call get_exercise_history or list_workouts first, then answer with real numbers.
 - When suggesting exercises, use search_exercises so you recommend real movements with correct muscle/equipment data.
 - If the user mentions a movement not in the library, search first; if it's genuinely missing, add it with create_exercise (then you can log sets against it).
@@ -315,6 +317,31 @@ func (a *Agent) tools() []toolDef {
 				"required": []string{"notes"},
 			},
 		},
+		{
+			Name:        "update_set",
+			Description: "Fix an already-logged set by its id: overwrite its weight, reps and/or rpe. Use this to correct a mistake (e.g. a typo in reps) instead of logging a duplicate. Get the set id from get_exercise_history or list_workouts first.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":     map[string]any{"type": "integer", "description": "The set id to update (from get_exercise_history or list_workouts)"},
+					"weight": map[string]any{"type": "number", "description": "Corrected weight (user's units). Omit to keep the current value."},
+					"reps":   map[string]any{"type": "integer", "description": "Corrected reps. Omit to keep the current value."},
+					"rpe":    map[string]any{"type": "number", "description": "Corrected RPE 1-10. Omit to keep the current value."},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "delete_set",
+			Description: "Delete a mistakenly-logged set by its id. Use for a duplicate or an entry that should not exist. Get the set id from get_exercise_history or list_workouts first, and confirm with the user which set before deleting if there's any ambiguity.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id": map[string]any{"type": "integer", "description": "The set id to delete (from get_exercise_history or list_workouts)"},
+				},
+				"required": []string{"id"},
+			},
+		},
 	}
 }
 
@@ -476,7 +503,8 @@ func (a *Agent) runTool(name string, input json.RawMessage) (result string, muta
 			if h.Set.RPE != nil {
 				rpe = fmt.Sprintf(" @RPE%.1f", *h.Set.RPE)
 			}
-			fmt.Fprintf(&sb, "%s: %s %gx%d%s\n", h.Date, h.Set.Exercise, h.Set.Weight, h.Set.Reps, rpe)
+			// Include the set id so it can be referenced by delete_set / update_set.
+			fmt.Fprintf(&sb, "set #%d — %s: %s %gx%d%s\n", h.Set.ID, h.Date, h.Set.Exercise, h.Set.Weight, h.Set.Reps, rpe)
 		}
 		return sb.String(), false, nil
 
@@ -719,6 +747,65 @@ func (a *Agent) runTool(name string, input json.RawMessage) (result string, muta
 			return "", false, err
 		}
 		return fmt.Sprintf("Saved notes for %s.", in.Date), true, nil
+
+	case "update_set":
+		var in struct {
+			ID     int64    `json:"id"`
+			Weight *float64 `json:"weight"`
+			Reps   *int     `json:"reps"`
+			RPE    *float64 `json:"rpe"`
+		}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return "", false, err
+		}
+		if in.ID == 0 {
+			return "", false, fmt.Errorf("id is required")
+		}
+		// Start from the current values so omitted fields are preserved.
+		cur, err := a.store.getSet(in.ID)
+		if err == sql.ErrNoRows {
+			return fmt.Sprintf("No set with id #%d.", in.ID), false, nil
+		}
+		if err != nil {
+			return "", false, err
+		}
+		weight, reps, rpe := cur.Set.Weight, cur.Set.Reps, cur.Set.RPE
+		if in.Weight != nil {
+			weight = *in.Weight
+		}
+		if in.Reps != nil {
+			reps = *in.Reps
+		}
+		if in.RPE != nil {
+			rpe = in.RPE
+		}
+		updated, err := a.store.updateSet(in.ID, weight, reps, rpe)
+		if err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("Updated set #%d: %s %gx%d on %s.", updated.Set.ID, updated.Set.Exercise, updated.Set.Weight, updated.Set.Reps, updated.Date), true, nil
+
+	case "delete_set":
+		var in struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return "", false, err
+		}
+		if in.ID == 0 {
+			return "", false, fmt.Errorf("id is required")
+		}
+		cur, err := a.store.getSet(in.ID)
+		if err == sql.ErrNoRows {
+			return fmt.Sprintf("No set with id #%d.", in.ID), false, nil
+		}
+		if err != nil {
+			return "", false, err
+		}
+		if err := a.store.deleteSet(in.ID); err != nil {
+			return "", false, err
+		}
+		return fmt.Sprintf("Deleted set #%d: %s %gx%d on %s.", cur.Set.ID, cur.Set.Exercise, cur.Set.Weight, cur.Set.Reps, cur.Date), true, nil
 
 	default:
 		return "", false, fmt.Errorf("unknown tool %q", name)
