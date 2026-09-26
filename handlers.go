@@ -247,6 +247,146 @@ func (app *App) handleDeleteSet(w http.ResponseWriter, r *http.Request) {
 	app.handleLogFragment(w, r)
 }
 
+// --- Programs (reusable workout templates) ---
+
+// programsData drives the Programs tab (list of programs + the create form).
+type programsData struct {
+	PageTitle string
+	Active    string
+	Today     string
+	Programs  []Program
+}
+
+func (app *App) handleProgramsPage(w http.ResponseWriter, r *http.Request) {
+	programs, err := app.store.listPrograms()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data := programsData{
+		PageTitle: "Programs",
+		Active:    "programs",
+		Today:     today(),
+		Programs:  programs,
+	}
+	if err := app.tmpl.ExecuteTemplate(w, "programs.html", data); err != nil {
+		log.Printf("render programs: %v", err)
+	}
+}
+
+// writeProgramList re-renders just the list of program cards (for HTMX swaps).
+func (app *App) writeProgramList(w http.ResponseWriter) {
+	programs, err := app.store.listPrograms()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := app.tmpl.ExecuteTemplate(w, "programs_list.html", programs); err != nil {
+		log.Printf("render program list: %v", err)
+	}
+}
+
+// handleAddProgram creates a program from the form. Exercise rows arrive as
+// index-aligned repeated fields (exercise, sets, reps, weight, rpe); blank rows
+// are skipped. Requires a name and at least one exercise.
+func (app *App) handleAddProgram(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	notes := strings.TrimSpace(r.FormValue("notes"))
+
+	exercises := r.Form["exercise"]
+	setsF := r.Form["sets"]
+	repsF := r.Form["reps"]
+	weightF := r.Form["weight"]
+	rpeF := r.Form["rpe"]
+
+	var exs []ProgramExercise
+	for i, ex := range exercises {
+		ex = strings.TrimSpace(ex)
+		if ex == "" {
+			continue
+		}
+		e := ProgramExercise{Exercise: ex, Sets: 1}
+		if i < len(setsF) {
+			if n, err := strconv.Atoi(strings.TrimSpace(setsF[i])); err == nil && n > 0 {
+				e.Sets = n
+			}
+		}
+		if i < len(repsF) {
+			e.Reps, _ = strconv.Atoi(strings.TrimSpace(repsF[i]))
+		}
+		if i < len(weightF) {
+			e.Weight, _ = strconv.ParseFloat(strings.TrimSpace(weightF[i]), 64)
+		}
+		if i < len(rpeF) {
+			if v := strings.TrimSpace(rpeF[i]); v != "" {
+				if f, err := strconv.ParseFloat(v, 64); err == nil {
+					e.RPE = &f
+				}
+			}
+		}
+		exs = append(exs, e)
+	}
+	if len(exs) == 0 {
+		http.Error(w, "add at least one exercise", http.StatusBadRequest)
+		return
+	}
+	if _, err := app.store.createProgram(name, notes, exs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Let the client reset the form (mirrors exercise-added / settings-changed).
+	w.Header().Set("HX-Trigger", "program-added")
+	app.writeProgramList(w)
+}
+
+func (app *App) handleDeleteProgram(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := app.store.deleteProgram(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	app.writeProgramList(w)
+}
+
+// handleStartProgram logs a program's sets to today and returns a confirmation
+// fragment linking to the Training tab.
+func (app *App) handleStartProgram(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	n, ok, err := app.store.startProgram(id, today())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if !ok {
+		w.Write([]byte(`<span class="prog-started err">Program not found.</span>`))
+		return
+	}
+	setWord := "sets"
+	if n == 1 {
+		setWord = "set"
+	}
+	w.Write([]byte(fmt.Sprintf(
+		`<span class="prog-started">Logged %d %s to today · <a href="/training">view →</a></span>`,
+		n, setWord)))
+}
+
 // bodyweightData drives the bodyweight tab (chart + list).
 type bodyweightData struct {
 	PageTitle string
