@@ -16,6 +16,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Height of the top bar; full-screen pages subtract it. Phones make it taller. */
+:root { --topbar-h: 56px; }
 [hidden] { display: none !important; }
 
 /* ---- icons (inline SVG, see icons.go) ---- */
@@ -37,9 +39,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
 /* ---- top bar ---- */
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
-  padding: 12px 20px;
+  height: var(--topbar-h);
+  padding: 0 20px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
 }
@@ -69,7 +72,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) minmax(320px, 1.1fr);
   gap: 14px;
   padding: 14px;
-  height: calc(100vh - 49px);
+  height: calc(100vh - var(--topbar-h));
   overflow: hidden;
 }
 .layout-2 { grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.3fr); }
@@ -146,7 +149,7 @@ select option { background: var(--bg-panel); color: var(--text); }
 
 /* Styled file input: hide the native "Choose Files" control; a .filepick label
    wraps it and provides an app-styled button + a filename readout. */
-.filepick { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.filepick { position: relative; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .filepick input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .filepick-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -181,7 +184,7 @@ select option { background: var(--bg-panel); color: var(--text); }
 .btn.tiny { padding: 2px 8px; font-size: 12px; line-height: 1.2; }
 
 /* ---- bodyweight tab ---- */
-.bw-page { padding: 20px; height: calc(100vh - 49px); overflow-y: auto; }
+.bw-page { padding: 20px; height: calc(100vh - var(--topbar-h)); overflow-y: auto; }
 .bw-layout { max-width: 860px; margin: 0 auto; }
 .bw-chart-panel { }
 .bw-form { display: flex; gap: 8px; }
@@ -544,7 +547,7 @@ select:focus { border-color: var(--accent-dim); }
 .bubble.md tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.015); }
 
 /* ---- coach page (home) ---- */
-.coach { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 49px); overflow: hidden; }
+.coach { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - var(--topbar-h)); overflow: hidden; }
 .coach-side {
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -639,7 +642,7 @@ select:focus { border-color: var(--accent-dim); }
 
 @media (max-width: 760px) {
   .coach { grid-template-columns: 1fr; }
-  .coach-side { position: fixed; top: 49px; bottom: 0; left: 0; width: 280px; z-index: 30; transform: translateX(-100%); transition: transform .18s; }
+  .coach-side { position: fixed; top: var(--topbar-h); bottom: 0; left: 0; width: 280px; z-index: 30; transform: translateX(-100%); transition: transform .18s; }
   .coach-side.open { transform: none; box-shadow: 0 0 30px rgba(0,0,0,.5); }
   .side-toggle { display: inline-block; }
   .coach .chat-scroll { padding: 14px 16px 8px; }
@@ -847,9 +850,9 @@ select:focus { border-color: var(--accent-dim); }
    the keyboard and full-height pages don't get clipped. vh stays as a fallback
    for browsers without dvh. */
 @supports (height: 100dvh) {
-  .layout { height: calc(100dvh - 49px); }
-  .coach { height: calc(100dvh - 49px); }
-  .bw-page { height: calc(100dvh - 49px); }
+  .layout { height: calc(100dvh - var(--topbar-h)); }
+  .coach { height: calc(100dvh - var(--topbar-h)); }
+  .bw-page { height: calc(100dvh - var(--topbar-h)); }
 }
 
 /* Once the columns stack (≤900px) the page scrolls as a whole, so the layout
@@ -891,3 +894,75 @@ select:focus { border-color: var(--accent-dim); }
   .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .coach-side { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 }
+
+/* ---- phone layout ----
+   Kept last so it overrides the generic stacking rules above. */
+
+/* Stacked columns (tablets and phones): a long workout history scrolls inside
+   its panel rather than pushing the exercise library thousands of pixels down,
+   and empty lists don't hold open a tall blank box. */
+@media (max-width: 900px) {
+  .col-log > .panel.grow { max-height: 70vh; }
+  .panel.grow:has(> #log > .empty:only-child),
+  .panel.grow:has(> #program-list > .empty:only-child) { min-height: 0; }
+}
+
+@media (max-width: 640px) {
+  :root { --topbar-h: 54px; }
+
+  /* Top bar: a bit shorter, just the logo mark so more tabs fit, and a fade on the right edge that shows the tab
+     strip scrolls. app.js scrolls the active tab into view. */
+  .brand-name { display: none; }
+  .tabs {
+    padding: 0 28px 2px 16px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 32px), transparent);
+            mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 32px), transparent);
+  }
+
+  /* Forms that sit in a panel's title bar on desktop (bodyweight, cardio,
+     supplements) go under the title as a full-width grid. */
+  .panel-titlebar { flex-direction: column; align-items: stretch; }
+  .bw-form, .cardio-form, .supp-form {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+  }
+  .bw-form { grid-template-columns: 1fr 1.25fr auto; }
+  .bw-form input, .cardio-form input, .supp-form input, .supp-form select { width: 100% !important; min-width: 0; }
+  .supp-form select.supp-unit, .supp-form input.supp-unit { width: 100% !important; }
+  /* Five cardio stats in two columns: the odd one out spans the row. */
+  .cardio-stats .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .cardio-form input[name="type"],
+  .supp-form input[name="name"],
+  .supp-form input.supp-unit:not([hidden]) { grid-column: 1 / -1; }
+  .cardio-form .btn, .supp-form .btn { padding-top: 10px; padding-bottom: 10px; }
+
+  /* Measurements: the save button gets its own full-width row. */
+  .measure-form-foot { flex-wrap: wrap; }
+  .measure-form-foot input[type="date"] { flex: 1 1 100%; }
+  .measure-form-foot .btn { flex: 1 1 100%; }
+
+  /* Program builder: the remove button shares the exercise line, so the four
+     numeric targets get the full width beneath it (room for "Weight"). */
+  .prog-row input[name="exercise"] { flex: 1 1 calc(100% - 52px); }
+  .prog-row .prog-row-del { order: 1; }
+  .prog-row input[name="sets"],
+  .prog-row input[name="reps"],
+  .prog-row input[name="weight"],
+  .prog-row input[name="rpe"] { order: 2; flex: 1 1 calc(25% - 6px); padding-left: 10px; padding-right: 8px; }
+
+  /* Supplement consistency: keep "27/30 days" on one line. */
+  .supp-cons-row { grid-template-columns: minmax(70px, 1fr) 1.2fr auto; }
+  .supp-cons-n { white-space: nowrap; }
+
+  /* Coach: the conversation list is a full-height drawer over a dimmed page
+     (it used to start below a 49px bar that's taller on phones), and the
+     keyboard-shortcut hint is hidden; the hint line still shows errors. */
+  .coach-side { top: 0; z-index: 50; }
+  .coach-side.open { box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55); }
+  .composer-hint:not(.chat-err) { display: none; }
+}
+
+/* Long user-entered names (a cardio type, supplement, program or food with no
+   spaces) wrap instead of pushing the row's buttons off the edge. */
+.cardio-type, .cardio-type .ex-link, .food-name, .program-name, .drawer-title,
+.supp-chip-name, .supp-log, .ex-name .ex-link { min-width: 0; overflow-wrap: anywhere; }
+.supp-chip { max-width: 100%; text-align: left; }

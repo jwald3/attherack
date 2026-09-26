@@ -203,6 +203,22 @@
     }
   });
 
+  // The exercise-library filter chips fill a whole phone screen; start them
+  // collapsed there (the <details> is open by default for desktop).
+  document.addEventListener("DOMContentLoaded", () => {
+    if (window.matchMedia("(max-width: 640px)").matches) $("details.facets")?.removeAttribute("open");
+  });
+
+  // On phones the tab strip scrolls sideways; bring the current tab into view
+  // so pages further along (Diet, Supplements…) don't show a strip of others.
+  document.addEventListener("DOMContentLoaded", () => {
+    const tabs = $(".tabs"),
+      active = $(".tab.active");
+    if (tabs && active && tabs.scrollWidth > tabs.clientWidth) {
+      tabs.scrollLeft = active.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - active.offsetWidth) / 2;
+    }
+  });
+
   // ---- Coach chat ----
   const scroll = () => {
     const box = $("#chat-scroll");
