@@ -1,0 +1,14 @@
+{
+  "name": "attherack-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests for At The Rack (Playwright + a fake Claude API)",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

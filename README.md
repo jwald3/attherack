@@ -74,6 +74,7 @@ reads it on startup; real environment variables take priority).
 | `ANTHROPIC_API_KEY` | *(unset)* | Enables the coach. If set, it overrides any key saved in the app, and the in-app key field becomes read-only. |
 | `ADDR` | `127.0.0.1:8080` | Listen address. The default only accepts connections from this computer. |
 | `DB_PATH` | `attherack.db` | SQLite file, created on first run. The `-db` flag overrides it. |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Where the coach sends API requests. Only needed for a proxy or the end-to-end tests' fake API. |
 
 > **Security:** there is no login. Anyone who can reach the port can read your
 > data and use your saved API key. To use the app from your phone, set
@@ -133,7 +134,8 @@ chart.go          server-rendered SVG line charts
 markdown.go       small, safe Markdown renderer for coach replies (incl. tables)
 importer.go       ChimpFitness CSV importers
 seed.go           -seed-demo fake data
-*_test.go         tests (go test ./...)
+*_test.go         unit tests (go test ./...)
+e2e/              browser end-to-end tests (Playwright) with a fake Claude API
 data/             exercises.json from free-exercise-db
 docs/screenshots/ README images (captured from -seed-demo data)
 web/templates/    one template per page (coach, training, cardio, ...)
@@ -148,8 +150,26 @@ restart (or re-run `go run .`) after editing them.
 ```sh
 go run . -seed-demo -db dev.db   # first run: create a dev database with fake data
 go run . -db dev.db              # later runs: reuse it
-go test ./...                    # run tests
+go test ./...                    # run unit tests
 go vet ./... && gofmt -l .       # lint; gofmt should print nothing
+```
+
+### End-to-end tests
+
+`e2e/` drives the real app in a headless browser with
+[Playwright](https://playwright.dev). It builds the Go binary, starts it
+against a throwaway database, and points it at `e2e/fake-claude.mjs`, a
+stand-in for the Anthropic API that records what the app sends and replies
+deterministically, so the tests need no key and make no network calls. They
+cover the photo flow end to end: attaching, pasting, in-browser downscaling,
+the image blocks in the outgoing API request, thumbnails after reload, and
+rejected uploads.
+
+```sh
+cd e2e
+npm install && npx playwright install chromium   # once
+npm test                                         # headless run
+npm run test:ui                                  # Playwright's interactive runner
 ```
 
 The stack is intentionally small: Go standard library `net/http` and

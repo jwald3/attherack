@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
 const (
 	claudeURL   = "https://api.anthropic.com/v1/messages"
+	claudeBase  = "https://api.anthropic.com"
 	claudeModel = "claude-opus-4-8"
 	haikuModel  = "claude-haiku-4-5" // cheap model for quick field inference
 	apiVersion  = "2023-06-01"
@@ -135,6 +137,7 @@ type Agent struct {
 	store  *Store
 	lib    *ExerciseLibrary
 	http   *http.Client
+	url    string // messages endpoint; "" means the real API
 }
 
 func newAgent(apiKey string, store *Store, lib *ExerciseLibrary) *Agent {
@@ -143,7 +146,27 @@ func newAgent(apiKey string, store *Store, lib *ExerciseLibrary) *Agent {
 		store:  store,
 		lib:    lib,
 		http:   &http.Client{Timeout: 5 * time.Minute},
+		url:    messagesURL(),
 	}
+}
+
+// messagesURL returns the Messages endpoint, honouring ANTHROPIC_BASE_URL so
+// the end-to-end tests (and proxies) can point the app at a stand-in server.
+func messagesURL() string {
+	base := strings.TrimRight(os.Getenv("ANTHROPIC_BASE_URL"), "/")
+	if base == "" {
+		base = claudeBase
+	}
+	return base + "/v1/messages"
+}
+
+// endpoint is the URL call sites use; Agents built without newAgent (tests)
+// fall back to the real API.
+func (a *Agent) endpoint() string {
+	if a.url == "" {
+		return claudeURL
+	}
+	return a.url
 }
 
 const systemPrompt = `You are a knowledgeable, encouraging strength & conditioning coach embedded in a lightweight weightlifting tracker. You help the user plan training, log workouts, and surface insights from their history.
@@ -523,7 +546,7 @@ func (a *Agent) call(req apiRequest) (*apiResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequest("POST", claudeURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", a.endpoint(), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -1100,7 +1123,7 @@ func (a *Agent) SuggestExercise(name string) (ExerciseSuggestion, error) {
 	if err != nil {
 		return ExerciseSuggestion{}, err
 	}
-	httpReq, err := http.NewRequest("POST", claudeURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", a.endpoint(), bytes.NewReader(body))
 	if err != nil {
 		return ExerciseSuggestion{}, err
 	}
