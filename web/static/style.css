@@ -759,3 +759,47 @@ input[type="password"]:focus { border-color: var(--accent-dim); }
   /* Food rows: notes/macros wrap under the name instead of overflowing. */
   .food-macros { white-space: normal; }
 }
+
+/* ---- mobile ergonomics ---- */
+
+/* Dynamic viewport height: on phones the URL bar and on-screen keyboard change
+   the usable height. dvh tracks that, so the coach composer stays visible above
+   the keyboard and full-height pages don't get clipped. vh stays as a fallback
+   for browsers without dvh. */
+@supports (height: 100dvh) {
+  .layout { height: calc(100dvh - 49px); }
+  .coach { height: calc(100dvh - 49px); }
+  .bw-page { height: calc(100dvh - 49px); }
+}
+
+@media (max-width: 640px) {
+  /* iOS Safari zooms the page when you focus an input whose text is smaller
+     than 16px. Bump form controls to 16px on phones to prevent that jump. */
+  input, button, select, textarea,
+  input[type="text"], input[type="search"], input[type="number"],
+  input[type="date"], input[type="password"], .composer textarea {
+    font-size: 16px;
+  }
+
+  /* Comfortable touch targets (~44px) for the things you tap most. */
+  .tab { padding: 9px 14px; }
+  .btn { padding: 10px 16px; }
+  .btn.small { padding: 8px 12px; }
+  .btn.tiny { padding: 6px 10px; }
+  .composer .send, .composer .attach { width: 40px; height: 40px; }
+
+  /* Row action buttons (delete a set/food/cardio/supplement) are hover-hidden
+     on desktop; on touch there's no hover, so keep them visible and tappable. */
+  .s-del .btn, .food-del, .cardio-del, .bw-del, .supp-del,
+  .thread-actions { opacity: 1; }
+  .s-del .btn, .food-del, .cardio-del, .bw-del { padding: 6px; }
+
+  /* Safe-area insets for notched / rounded phones (needs viewport-fit=cover). */
+  .topbar { padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right)); }
+  .layout { padding-left: max(10px, env(safe-area-inset-left));
+            padding-right: max(10px, env(safe-area-inset-right));
+            padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .coach-side { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
