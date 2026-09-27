@@ -1,6 +1,7 @@
 # build output
 attherack
 attherack.exe
+attherack-*.exe
 /dist/
 
 # local database (created at runtime) and any copies/backups of it.

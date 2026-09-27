@@ -1,0 +1,25 @@
+# Self-host At The Rack with Docker Compose:
+#   docker compose up -d
+# then open http://localhost:8080
+services:
+  attherack:
+    build: .
+    image: attherack
+    restart: unless-stopped
+    ports:
+      # Reachable only from this computer. There is no login, so to reach it
+      # from other devices change this to "8080:8080" only on a network you
+      # trust, or put it behind a VPN or an authenticating reverse proxy.
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Your timezone decides when "today" rolls over. Use a name from
+      # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      TZ: America/New_York
+      # Optional: enables the coach and makes the in-app key field read-only.
+      # You can instead paste a key in the app (it's saved in the database).
+      # ANTHROPIC_API_KEY: sk-ant-...
+    volumes:
+      - attherack-data:/data
+
+volumes:
+  attherack-data:

@@ -1,0 +1,20 @@
+# Keep the build context small and never bake personal data or secrets into an image.
+.git
+.github
+docs
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.bak
+*.sqlite
+*.sqlite3
+.env
+attherack
+attherack.exe
+/dist/
+*.log
+.idea/
+.vscode/
+Dockerfile
+docker-compose.yml
