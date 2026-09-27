@@ -261,9 +261,60 @@ func (app *App) handleChatMessage(w http.ResponseWriter, r *http.Request) {
 		writePendingBubble(w, id)
 		return
 	}
+	if m.Errored() {
+		writeErrorBubble(w, id)
+		return
+	}
 	writeChatBubble(w, "assistant", m.Content, m.Mutated)
 	// The thread may have just been auto-titled; refresh the sidebar so it shows.
 	app.writeThreadList(w, m.ThreadID, true)
+}
+
+// handleRetryChat regenerates a failed assistant reply in place: it re-runs the
+// user turn that produced it, flipping the same message row back to pending and
+// returning a polling placeholder, exactly like a fresh send.
+func (app *App) handleRetryChat(w http.ResponseWriter, r *http.Request) {
+	agent := app.getAgent()
+	if agent == nil {
+		writeChatBubble(w, "assistant", "Chat is disabled. Add your Anthropic API key (API key button, bottom left) to enable Claude.", false)
+		return
+	}
+	id, err := pathID(r)
+	if err != nil {
+		badID(w)
+		return
+	}
+	msg, ok := app.store.GetChatMessage(id)
+	if !ok || msg.Role != "assistant" || !msg.Errored() {
+		// Only a failed assistant reply can be retried; anything else is a no-op.
+		http.Error(w, "nothing to retry", http.StatusBadRequest)
+		return
+	}
+	user, ok := app.store.PrecedingUserMessage(msg.ThreadID, msg.ID)
+	if !ok {
+		http.Error(w, "no message to retry", http.StatusBadRequest)
+		return
+	}
+	images, _ := app.store.ImagesForMessage(user.ID)
+
+	// History is everything before the user turn we're re-running.
+	all, _ := app.store.ListChatMessages(msg.ThreadID, 500)
+	var history []store.ChatMessage
+	for _, m := range all {
+		if m.ID >= user.ID {
+			break
+		}
+		history = append(history, m)
+	}
+
+	if err := app.store.ResetToPending(msg.ID); err != nil {
+		serverError(w, err)
+		return
+	}
+	go app.generateReply(agent, msg.ThreadID, msg.ID, history, user.Content, images, false)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writePendingBubble(w, msg.ID)
 }
 
 // handleChatImage serves an attached photo for display in the conversation.
@@ -316,6 +367,25 @@ func imagesHTML(imgs []store.ChatImage) string {
 	}
 	sb.WriteString(`</div>`)
 	return sb.String()
+}
+
+// writeErrorBubble emits a failed reply: a clean message and a Retry button
+// that re-runs the last user turn in place (swapping itself for a pending
+// bubble that polls to completion).
+func writeErrorBubble(w http.ResponseWriter, id int64) {
+	sid := strconv.FormatInt(id, 10)
+	writeHTML(w, errorBubbleHTML(sid))
+}
+
+// errorBubbleHTML is the markup for a failed reply, shared by the poll endpoint
+// and the page-load template.
+func errorBubbleHTML(sid string) string {
+	return `<div class="bubble assistant error" id="msg-` + sid + `">` +
+		`<span class="error-text">That didn't go through.</span> ` +
+		`<button type="button" class="btn tiny retry" ` +
+		`hx-post="/chat/msg/` + sid + `/retry" ` +
+		`hx-target="#msg-` + sid + `" hx-swap="outerHTML">Retry</button>` +
+		`</div>`
 }
 
 // writePendingBubble emits the "thinking" placeholder for an in-flight reply.

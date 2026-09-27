@@ -53,6 +53,7 @@ func (app *App) Handler() http.Handler {
 	mux.HandleFunc("POST /threads/{id}/rename", app.handleRenameThread)
 	mux.HandleFunc("POST /chat", app.handleChat)
 	mux.HandleFunc("GET /chat/msg/{id}", app.handleChatMessage)
+	mux.HandleFunc("POST /chat/msg/{id}/retry", app.handleRetryChat)
 	mux.HandleFunc("GET /chat/img/{id}", app.handleChatImage)
 	mux.HandleFunc("GET /settings", app.handleSettingsFragment)
 	mux.HandleFunc("POST /settings/key", app.handleSaveKey)

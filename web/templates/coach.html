@@ -30,6 +30,8 @@
                    hx-get="/chat/msg/{{.ID}}" hx-trigger="load delay:1500ms"
                    hx-swap="outerHTML" hx-target="this">
                 <span class="typing"><i></i><i></i><i></i></span></div>
+            {{else if .Errored}}
+              {{errorbubble .ID}}
             {{else}}
               <div class="bubble {{.Role}} md">{{if eq .Role "assistant"}}{{.Content | md}}{{else}}{{imgs .Images}}{{.Content | nl2br}}{{end}}</div>
             {{end}}

@@ -40,6 +40,9 @@ type ChatImage struct {
 // Pending reports whether an assistant reply is still being generated.
 func (m ChatMessage) Pending() bool { return m.Status == StatusPending }
 
+// Errored reports whether an assistant reply failed to generate.
+func (m ChatMessage) Errored() bool { return m.Status == StatusError }
+
 // --- Threads ---
 
 func (s *Store) CreateThread(title string) (int64, error) {
@@ -154,6 +157,32 @@ func (s *Store) FinishChatMessage(id int64, content, status string, mutated bool
 	return err
 }
 
+// PrecedingUserMessage returns the most recent user message before the given
+// message id in the same thread — the turn that produced a given assistant
+// reply. Images are loaded so a retry can re-send any attached photos.
+func (s *Store) PrecedingUserMessage(threadID, beforeID int64) (ChatMessage, bool) {
+	var m ChatMessage
+	err := s.db.QueryRow(`
+SELECT id, thread_id, role, content, status, mutated, created_at FROM chat_messages
+WHERE thread_id = ? AND role = 'user' AND id < ?
+ORDER BY id DESC LIMIT 1`, threadID, beforeID).
+		Scan(&m.ID, &m.ThreadID, &m.Role, &m.Content, &m.Status, &m.Mutated, &m.CreatedAt)
+	if err != nil {
+		return m, false
+	}
+	m.Images, _ = s.listImageRefs(m.ID)
+	return m, true
+}
+
+// ResetToPending flips an assistant message back to a blank pending state so a
+// background retry can regenerate it in place.
+func (s *Store) ResetToPending(id int64) error {
+	_, err := s.db.Exec(
+		`UPDATE chat_messages SET content = '', status = ?, mutated = 0 WHERE id = ?`,
+		StatusPending, id)
+	return err
+}
+
 // GetChatMessage returns one message by id.
 func (s *Store) GetChatMessage(id int64) (ChatMessage, bool) {
 	var m ChatMessage
@@ -210,6 +239,25 @@ func (s *Store) GetChatImage(id int64) (ChatImage, bool) {
 	err := s.db.QueryRow(`SELECT id, message_id, media_type, data FROM chat_images WHERE id = ?`, id).
 		Scan(&img.ID, &img.MessageID, &img.MediaType, &img.Data)
 	return img, err == nil
+}
+
+// ImagesForMessage returns every image on a message with its bytes loaded —
+// used to re-send attachments when retrying a failed reply.
+func (s *Store) ImagesForMessage(messageID int64) ([]ChatImage, error) {
+	rows, err := s.db.Query(`SELECT id, message_id, media_type, data FROM chat_images WHERE message_id = ? ORDER BY id`, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ChatImage
+	for rows.Next() {
+		var img ChatImage
+		if err := rows.Scan(&img.ID, &img.MessageID, &img.MediaType, &img.Data); err != nil {
+			return nil, err
+		}
+		out = append(out, img)
+	}
+	return out, rows.Err()
 }
 
 // listImageRefs returns the id/media type of every image on a message (no bytes).

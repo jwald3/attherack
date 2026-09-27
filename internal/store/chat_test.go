@@ -62,6 +62,39 @@ func TestPendingReplyLifecycle(t *testing.T) {
 	}
 }
 
+func TestRetrySupport(t *testing.T) {
+	st := newTestStore(t)
+	tid, _ := st.CreateThread("t")
+
+	// A user turn, then a reply that failed.
+	uid, err := st.AddChatMessageWithImages(tid, "user", "plan my pull day", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aid, _ := st.AddPendingAssistant(tid)
+	if err := st.FinishChatMessage(aid, "boom", StatusError, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// The failed reply can be traced back to its user turn.
+	user, ok := st.PrecedingUserMessage(tid, aid)
+	if !ok || user.ID != uid || user.Content != "plan my pull day" {
+		t.Fatalf("PrecedingUserMessage: %+v ok=%v", user, ok)
+	}
+	if m, _ := st.GetChatMessage(aid); !m.Errored() {
+		t.Fatalf("reply should be errored, got status %q", m.Status)
+	}
+
+	// Resetting it to pending clears the error content so a retry can refill it.
+	if err := st.ResetToPending(aid); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := st.GetChatMessage(aid)
+	if !m.Pending() || m.Content != "" {
+		t.Fatalf("after ResetToPending: %+v", m)
+	}
+}
+
 func TestSetNotFound(t *testing.T) {
 	st := newTestStore(t)
 	if _, err := st.GetSet(42); err != ErrNotFound {

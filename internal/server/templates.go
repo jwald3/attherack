@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jwald3/attherack/internal/markdown"
@@ -61,6 +62,9 @@ func templateFuncs() template.FuncMap {
 		"imgs":     func(imgs []store.ChatImage) template.HTML { return template.HTML(imagesHTML(imgs)) },
 		"add":      func(a, b int) int { return a + b },
 		"assetver": func() string { return assetVersion },
+		"errorbubble": func(id int64) template.HTML {
+			return template.HTML(errorBubbleHTML(strconv.FormatInt(id, 10)))
+		},
 	}
 }
 
