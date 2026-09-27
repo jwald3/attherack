@@ -286,7 +286,7 @@ func Workouts(st *store.Store, path string) error {
 			continue
 		}
 
-		if _, err := st.LogSet(date, name, weight, reps, nil); err != nil {
+		if _, err := st.LogSet(date, name, weight, reps, nil, ""); err != nil {
 			fmt.Fprintf(os.Stderr, "  ! %s %s: %v\n", date, name, err)
 			continue
 		}

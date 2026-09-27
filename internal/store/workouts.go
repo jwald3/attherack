@@ -22,6 +22,7 @@ type Set struct {
 	Weight    float64  `json:"weight"`
 	Reps      int      `json:"reps"`
 	RPE       *float64 `json:"rpe,omitempty"`
+	Note      string   `json:"note,omitempty"`
 }
 
 // ExerciseGroup is all of a workout's sets for one exercise, in the order they
@@ -113,7 +114,7 @@ func (s *Store) ListWorkouts(limit int) ([]Workout, error) {
 
 	// Attach sets in a second pass.
 	setRows, err := s.db.Query(`
-SELECT s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe
+SELECT s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe, s.note
 FROM sets s JOIN workouts w ON w.id = s.workout_id
 WHERE w.date IN (SELECT date FROM workouts ORDER BY date DESC, id DESC LIMIT ?)
 ORDER BY s.id ASC`, limit)
@@ -123,7 +124,7 @@ ORDER BY s.id ASC`, limit)
 	defer setRows.Close()
 	for setRows.Next() {
 		var st Set
-		if err := setRows.Scan(&st.ID, &st.WorkoutID, &st.Exercise, &st.Weight, &st.Reps, &st.RPE); err != nil {
+		if err := setRows.Scan(&st.ID, &st.WorkoutID, &st.Exercise, &st.Weight, &st.Reps, &st.RPE, &st.Note); err != nil {
 			return nil, err
 		}
 		if idx, ok := byID[st.WorkoutID]; ok {
@@ -137,31 +138,31 @@ ORDER BY s.id ASC`, limit)
 
 // datedSetCols selects a set joined to its workout's date, in the order
 // scanDatedSet reads them.
-const datedSetCols = `SELECT w.date, s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe
+const datedSetCols = `SELECT w.date, s.id, s.workout_id, s.exercise, s.weight, s.reps, s.rpe, s.note
 FROM sets s JOIN workouts w ON w.id = s.workout_id`
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scanDatedSet(r scanner) (DatedSet, error) {
 	var d DatedSet
-	err := r.Scan(&d.Date, &d.Set.ID, &d.Set.WorkoutID, &d.Set.Exercise, &d.Set.Weight, &d.Set.Reps, &d.Set.RPE)
+	err := r.Scan(&d.Date, &d.Set.ID, &d.Set.WorkoutID, &d.Set.Exercise, &d.Set.Weight, &d.Set.Reps, &d.Set.RPE, &d.Set.Note)
 	return d, err
 }
 
-// LogSet records a set, folding it into the workout for date.
-func (s *Store) LogSet(date, exercise string, weight float64, reps int, rpe *float64) (Set, error) {
+// LogSet records a set, folding it into the workout for date. note may be empty.
+func (s *Store) LogSet(date, exercise string, weight float64, reps int, rpe *float64, note string) (Set, error) {
 	wID, err := s.getOrCreateWorkout(date)
 	if err != nil {
 		return Set{}, err
 	}
 	res, err := s.db.Exec(
-		`INSERT INTO sets (workout_id, exercise, weight, reps, rpe) VALUES (?, ?, ?, ?, ?)`,
-		wID, exercise, weight, reps, rpe)
+		`INSERT INTO sets (workout_id, exercise, weight, reps, rpe, note) VALUES (?, ?, ?, ?, ?, ?)`,
+		wID, exercise, weight, reps, rpe, note)
 	if err != nil {
 		return Set{}, err
 	}
 	id, _ := res.LastInsertId()
-	return Set{ID: id, WorkoutID: wID, Exercise: exercise, Weight: weight, Reps: reps, RPE: rpe}, nil
+	return Set{ID: id, WorkoutID: wID, Exercise: exercise, Weight: weight, Reps: reps, RPE: rpe, Note: note}, nil
 }
 
 func (s *Store) DeleteSet(id int64) error {
@@ -178,13 +179,13 @@ func (s *Store) GetSet(id int64) (DatedSet, error) {
 	return d, err
 }
 
-// UpdateSet overwrites the weight, reps and rpe of an existing set. It returns
-// the updated set (with its workout date attached) or ErrNotFound if no set
-// has that id.
-func (s *Store) UpdateSet(id int64, weight float64, reps int, rpe *float64) (DatedSet, error) {
+// UpdateSet overwrites the weight, reps, rpe and note of an existing set. It
+// returns the updated set (with its workout date attached) or ErrNotFound if no
+// set has that id.
+func (s *Store) UpdateSet(id int64, weight float64, reps int, rpe *float64, note string) (DatedSet, error) {
 	res, err := s.db.Exec(
-		`UPDATE sets SET weight = ?, reps = ?, rpe = ? WHERE id = ?`,
-		weight, reps, rpe, id)
+		`UPDATE sets SET weight = ?, reps = ?, rpe = ?, note = ? WHERE id = ?`,
+		weight, reps, rpe, note, id)
 	if err != nil {
 		return DatedSet{}, err
 	}

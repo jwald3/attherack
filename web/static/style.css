@@ -337,8 +337,12 @@ table.sets tr:hover { background: var(--bg-elev); }
 .s-ex { color: var(--text); }
 /* Load sits next to the set number; the delete cell absorbs the slack and
    pins itself to the right edge, so a set reads as one compact line. */
-.s-load { text-align: left; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.s-load { text-align: left; font-family: var(--mono); color: var(--text); }
+.s-figs { white-space: nowrap; }
 .s-rpe { color: var(--text-faint); }
+/* A per-set note trails the load in dim italic sans, set off from the mono
+   figures; it wraps rather than forcing the row wide. */
+.s-note { font-family: var(--sans); font-style: italic; font-size: 12px; color: var(--text-dim); margin-left: 8px; }
 .s-del { width: 100%; text-align: right; }
 .s-del .btn { opacity: 0; }
 tr:hover .s-del .btn { opacity: 1; }

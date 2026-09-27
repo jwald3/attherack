@@ -21,7 +21,7 @@
                 {{range $i, $set := .Sets}}
                 <tr>
                   <td class="s-num">{{add $i 1}}</td>
-                  <td class="s-load">{{$set.Weight}} × {{$set.Reps}}{{if $set.RPE}} <span class="s-rpe">@{{$set.RPE}}</span>{{end}}</td>
+                  <td class="s-load"><span class="s-figs">{{$set.Weight}} × {{$set.Reps}}{{if $set.RPE}} <span class="s-rpe">@{{$set.RPE}}</span>{{end}}</span>{{if $set.Note}}<span class="s-note">{{$set.Note}}</span>{{end}}</td>
                   <td class="s-del">
                     <button class="btn tiny ghost"
                             hx-post="/sets/{{$set.ID}}/delete" hx-target="#log" hx-swap="innerHTML"

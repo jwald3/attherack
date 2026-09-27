@@ -21,6 +21,7 @@ var logSetTool = tool{
 			"weight":   prop("number", "Weight lifted (user's units)"),
 			"reps":     prop("integer", "Repetitions performed"),
 			"rpe":      prop("number", "Optional rate of perceived exertion, 1-10"),
+			"note":     prop("string", "Optional short note about this set, e.g. 'paused reps', 'form broke down', 'left knee tweaky'"),
 			"date":     dateProp(),
 		}, "exercise", "weight", "reps"),
 	},
@@ -30,6 +31,7 @@ var logSetTool = tool{
 			Weight   float64  `json:"weight"`
 			Reps     int      `json:"reps"`
 			RPE      *float64 `json:"rpe"`
+			Note     string   `json:"note"`
 			Date     string   `json:"date"`
 		}
 		if err := json.Unmarshal(input, &in); err != nil {
@@ -38,7 +40,7 @@ var logSetTool = tool{
 		if in.Date == "" {
 			in.Date = dates.Today()
 		}
-		set, err := a.store.LogSet(in.Date, in.Exercise, in.Weight, in.Reps, in.RPE)
+		set, err := a.store.LogSet(in.Date, in.Exercise, in.Weight, in.Reps, in.RPE, in.Note)
 		if err != nil {
 			return "", false, err
 		}
@@ -98,7 +100,11 @@ var getExerciseHistoryTool = tool{
 		var sb strings.Builder
 		for _, h := range hist {
 			// Include the set id so it can be referenced by delete_set / update_set.
-			fmt.Fprintf(&sb, "set #%d — %s: %s %gx%d%s\n", h.Set.ID, h.Date, h.Set.Exercise, h.Set.Weight, h.Set.Reps, fmtRPE(h.Set.RPE))
+			fmt.Fprintf(&sb, "set #%d — %s: %s %gx%d%s", h.Set.ID, h.Date, h.Set.Exercise, h.Set.Weight, h.Set.Reps, fmtRPE(h.Set.RPE))
+			if h.Set.Note != "" {
+				fmt.Fprintf(&sb, " — note: %s", h.Set.Note)
+			}
+			sb.WriteByte('\n')
 		}
 		return sb.String(), false, nil
 	},
@@ -211,12 +217,13 @@ var setWorkoutNotesTool = tool{
 var updateSetTool = tool{
 	def: toolDef{
 		Name:        "update_set",
-		Description: "Fix an already-logged set by its id: overwrite its weight, reps and/or rpe. Use this to correct a mistake (e.g. a typo in reps) instead of logging a duplicate. Get the set id from get_exercise_history or list_workouts first.",
+		Description: "Fix an already-logged set by its id: overwrite its weight, reps, rpe and/or note. Use this to correct a mistake (e.g. a typo in reps) or add a note to an existing set, instead of logging a duplicate. Get the set id from get_exercise_history or list_workouts first.",
 		InputSchema: object(map[string]any{
 			"id":     prop("integer", "The set id to update (from get_exercise_history or list_workouts)"),
 			"weight": prop("number", "Corrected weight (user's units). Omit to keep the current value."),
 			"reps":   prop("integer", "Corrected reps. Omit to keep the current value."),
 			"rpe":    prop("number", "Corrected RPE 1-10. Omit to keep the current value."),
+			"note":   prop("string", "Note for this set. Omit to keep the current note; pass an empty string to clear it."),
 		}, "id"),
 	},
 	run: func(a *Agent, input json.RawMessage) (string, bool, error) {
@@ -225,6 +232,7 @@ var updateSetTool = tool{
 			Weight *float64 `json:"weight"`
 			Reps   *int     `json:"reps"`
 			RPE    *float64 `json:"rpe"`
+			Note   *string  `json:"note"`
 		}
 		if err := json.Unmarshal(input, &in); err != nil {
 			return "", false, err
@@ -240,7 +248,7 @@ var updateSetTool = tool{
 		if err != nil {
 			return "", false, err
 		}
-		weight, reps, rpe := cur.Set.Weight, cur.Set.Reps, cur.Set.RPE
+		weight, reps, rpe, note := cur.Set.Weight, cur.Set.Reps, cur.Set.RPE, cur.Set.Note
 		if in.Weight != nil {
 			weight = *in.Weight
 		}
@@ -250,7 +258,10 @@ var updateSetTool = tool{
 		if in.RPE != nil {
 			rpe = in.RPE
 		}
-		updated, err := a.store.UpdateSet(in.ID, weight, reps, rpe)
+		if in.Note != nil {
+			note = *in.Note
+		}
+		updated, err := a.store.UpdateSet(in.ID, weight, reps, rpe, note)
 		if err != nil {
 			return "", false, err
 		}

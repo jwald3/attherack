@@ -42,7 +42,7 @@ func TestWorkoutsAndMigrateCardio(t *testing.T) {
 
 	// Simulate what an older importer left behind: a 0x0 marker set for the
 	// cardio row and a "Cardio:" line in the notes.
-	if _, err := st.LogSet("2026-05-04", "Treadmill Run", 0, 0, nil); err != nil {
+	if _, err := st.LogSet("2026-05-04", "Treadmill Run", 0, 0, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.SetWorkoutNotes("2026-05-04", "Legs — Felt good\n\nCardio: Treadmill Run 30 min"); err != nil {

@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS sets (
     exercise   TEXT NOT NULL,
     weight     REAL NOT NULL DEFAULT 0,
     reps       INTEGER NOT NULL DEFAULT 0,
-    rpe        REAL
+    rpe        REAL,
+    note       TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_sets_workout ON sets(workout_id);
 CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise);
@@ -131,7 +132,25 @@ func (s *Store) migrate() error {
 	if err := s.migrateChatThreads(); err != nil {
 		return err
 	}
-	return s.migrateChatStatus()
+	if err := s.migrateChatStatus(); err != nil {
+		return err
+	}
+	return s.migrateSetNote()
+}
+
+// migrateSetNote adds the per-set note column to databases created before
+// set notes existed. Existing sets get the default empty note.
+func (s *Store) migrateSetNote() error {
+	var n int
+	if err := s.db.QueryRow(`SELECT COUNT(1) FROM pragma_table_info('sets') WHERE name = 'note'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := s.db.Exec(`ALTER TABLE sets ADD COLUMN note TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // migrateChatThreads adds thread support to databases created before threads

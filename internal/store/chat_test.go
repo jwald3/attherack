@@ -67,15 +67,18 @@ func TestSetNotFound(t *testing.T) {
 	if _, err := st.GetSet(42); err != ErrNotFound {
 		t.Fatalf("GetSet on a missing id: %v, want ErrNotFound", err)
 	}
-	if _, err := st.UpdateSet(42, 100, 5, nil); err != ErrNotFound {
+	if _, err := st.UpdateSet(42, 100, 5, nil, ""); err != ErrNotFound {
 		t.Fatalf("UpdateSet on a missing id: %v, want ErrNotFound", err)
 	}
-	set, err := st.LogSet("2026-09-25", "Squat", 225, 5, nil)
+	set, err := st.LogSet("2026-09-25", "Squat", 225, 5, nil, "belt on")
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := st.UpdateSet(set.ID, 230, 4, nil)
-	if err != nil || d.Date != "2026-09-25" || d.Set.Weight != 230 || d.Set.Reps != 4 {
+	if set.Note != "belt on" {
+		t.Fatalf("LogSet note: got %q, want %q", set.Note, "belt on")
+	}
+	d, err := st.UpdateSet(set.ID, 230, 4, nil, "paused reps")
+	if err != nil || d.Date != "2026-09-25" || d.Set.Weight != 230 || d.Set.Reps != 4 || d.Set.Note != "paused reps" {
 		t.Fatalf("UpdateSet: %+v %v", d, err)
 	}
 }

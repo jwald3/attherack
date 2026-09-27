@@ -145,7 +145,7 @@ func (s *Store) StartProgram(id int64, date string) (logged int, ok bool, err er
 	}
 	for _, e := range p.Exercises {
 		for i := 0; i < max(e.Sets, 1); i++ {
-			if _, err := s.LogSet(date, e.Exercise, e.Weight, e.Reps, e.RPE); err != nil {
+			if _, err := s.LogSet(date, e.Exercise, e.Weight, e.Reps, e.RPE, ""); err != nil {
 				return logged, true, err
 			}
 			logged++

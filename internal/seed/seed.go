@@ -40,6 +40,8 @@ func Demo(s *store.Store) error {
 		4: {{"Standing Military Press", 95, 2.5, 3, 5}, {"Seated Cable Rows", 110, 5, 3, 10}, {"Incline Dumbbell Press", 50, 2.5, 3, 10}, {"Dumbbell Bicep Curl", 25, 0, 3, 12}},
 	}
 	notes := []string{"Felt strong today.", "Slept badly, kept it moving.", "Grip was the limiter on rows.", "", "", ""}
+	// A pool of per-set notes; most sets have none.
+	setNotes := []string{"paused reps", "felt easy", "form broke down", "left shoulder tweaky", "belt on", "new PR attempt", "", "", "", "", "", ""}
 
 	bw := 196.0
 	for i := 0; i < weeks*7; i++ {
@@ -51,7 +53,8 @@ func Demo(s *store.Store) error {
 				if set == l.sets-1 && rng.Intn(3) == 0 {
 					r-- // the occasional missed rep on the last set
 				}
-				if _, err := s.LogSet(date, l.name, l.base+l.step*float64(week), r, rpe(7+float64(set)*0.5)); err != nil {
+				note := setNotes[rng.Intn(len(setNotes))]
+				if _, err := s.LogSet(date, l.name, l.base+l.step*float64(week), r, rpe(7+float64(set)*0.5), note); err != nil {
 					return err
 				}
 			}

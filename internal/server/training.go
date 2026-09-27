@@ -73,7 +73,8 @@ func (app *App) handleAddSet(w http.ResponseWriter, r *http.Request) {
 			rpe = &f
 		}
 	}
-	if _, err := app.store.LogSet(formDate(r), name, weight, reps, rpe); err != nil {
+	note := strings.TrimSpace(r.FormValue("note"))
+	if _, err := app.store.LogSet(formDate(r), name, weight, reps, rpe, note); err != nil {
 		serverError(w, err)
 		return
 	}
