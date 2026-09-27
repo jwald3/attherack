@@ -211,18 +211,16 @@ select option { background: var(--bg-panel); color: var(--text); }
 .bw-svg .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .bw-svg .dot { fill: var(--accent); stroke: var(--bg-panel); stroke-width: 2; }
 
-/* Stats read as a typographic figure row, not a grid of cards: each column is
-   separated by a hairline rule, the number leads, its label sits beneath. */
+/* Stats are a bare row of figures — no boxes, borders, or dividers. The number
+   leads big, its label sits small and dim beneath, and whitespace does all the
+   separating. Reads like a summary line, not a table. */
 .bw-stats {
-  display: grid; grid-template-columns: repeat(6, 1fr);
-  margin: 20px 0 4px;
-  border-top: 1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
+  display: flex; flex-wrap: wrap; gap: 32px 44px;
+  margin: 22px 2px 6px;
 }
-.stat { padding: 12px 16px; }
-.stat + .stat { border-left: 1px solid var(--border-soft); }
-.stat-val { font-size: 20px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.01em; line-height: 1.1; }
-.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-top: 4px; }
+.stat { padding: 0; }
+.stat-val { font-size: 22px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.01em; line-height: 1.05; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-top: 5px; }
 .stat-val.down { color: var(--good); }
 .stat-val.up { color: #e0916f; }
 
@@ -240,11 +238,7 @@ select option { background: var(--bg-panel); color: var(--text); }
 .bw-row:hover .bw-del { opacity: 1; }
 
 @media (max-width: 620px) {
-  .bw-stats { grid-template-columns: repeat(3, 1fr); }
-  /* On a 3-wide grid the first cell of each row shouldn't carry a left rule,
-     and a middle divider keeps the rows from touching. */
-  .stat:nth-child(3n+1) { border-left: none; }
-  .stat:nth-child(n+4) { border-top: 1px solid var(--border-soft); }
+  .bw-stats { gap: 20px 28px; }
 }
 
 /* ---- cardio tab ---- */
@@ -252,7 +246,6 @@ select option { background: var(--bg-panel); color: var(--text); }
 .cardio-form input[type="text"] { width: 150px; }
 .cardio-form input[type="number"] { width: 78px; }
 .cardio-form input[type="date"] { width: 148px; }
-.cardio-stats { grid-template-columns: repeat(5, 1fr); }
 .stat-unit { font-size: 11px; color: var(--text-faint); margin-left: 2px; font-weight: 400; }
 .cardio-list { display: flex; flex-direction: column; }
 .cardio-row { display: flex; align-items: center; gap: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 5px; border-top: 1px solid var(--border-soft); }
@@ -327,10 +320,6 @@ select option { background: var(--bg-panel); color: var(--text); }
 .supp-del { background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 0 0 0 2px; font-size: 12px; opacity: 0; display: inline-flex; }
 .supp-log:hover .supp-del { opacity: 1; }
 .supp-del:hover { color: var(--accent); }
-
-@media (max-width: 620px) {
-  .cardio-stats { grid-template-columns: repeat(3, 1fr); }
-}
 
 /* ---- history / log ---- */
 #log { overflow-y: auto; padding-right: 4px; }
@@ -758,15 +747,10 @@ select:focus { border-color: var(--accent-dim); }
 .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .drawer-title { margin: 0 0 6px; font-size: 18px; letter-spacing: -0.01em; }
 .drawer-meta { display: flex; flex-wrap: wrap; gap: 4px; }
-.drawer-stats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  margin-bottom: 16px;
-  border-top: 1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
-}
-/* Tighter than the full-width stat rows since the drawer is narrow. */
-.drawer-stats .stat { padding: 10px 12px; }
-.drawer-stats .stat-val { font-size: 17px; }
+/* Same bare-figure treatment as the page stat rows, tighter for the drawer. */
+.drawer-stats { display: flex; flex-wrap: wrap; gap: 16px 28px; margin-bottom: 18px; }
+.drawer-stats .stat { padding: 0; }
+.drawer-stats .stat-val { font-size: 18px; }
 .drawer-chart { margin-bottom: 18px; }
 .drawer-chart-label { font-size: 12px; color: var(--text-dim); font-family: var(--mono); margin-bottom: 6px; }
 .drawer-chart-label .up-good { color: var(--good); }
@@ -863,13 +847,6 @@ select:focus { border-color: var(--accent-dim); }
   .chat-hello { font-size: 20px; }
   .starters { grid-template-columns: 1fr; }
 
-  /* Bodyweight/cardio stat grids: two per row reads better than three on a
-     narrow phone. Reset the divider rules and redraw them for two columns. */
-  .bw-stats,
-  .cardio-stats { grid-template-columns: repeat(2, 1fr); }
-  .bw-stats .stat, .cardio-stats .stat { border-left: none; border-top: none; }
-  .bw-stats .stat:nth-child(2n), .cardio-stats .stat:nth-child(2n) { border-left: 1px solid var(--border-soft); }
-  .bw-stats .stat:nth-child(n+3), .cardio-stats .stat:nth-child(n+3) { border-top: 1px solid var(--border-soft); }
   .bw-page { padding: 14px; }
 
   /* Supplement consistency rows: drop the fixed name column so the bar fits. */
@@ -975,8 +952,6 @@ select:focus { border-color: var(--accent-dim); }
   .bw-form { grid-template-columns: 1fr 1.25fr auto; }
   .bw-form input, .cardio-form input, .supp-form input, .supp-form select { width: 100% !important; min-width: 0; }
   .supp-form select.supp-unit, .supp-form input.supp-unit { width: 100% !important; }
-  /* Five cardio stats in two columns: the odd one out spans the row. */
-  .cardio-stats .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .cardio-form input[name="type"],
   .supp-form input[name="name"],
   .supp-form input.supp-unit:not([hidden]) { grid-column: 1 / -1; }
