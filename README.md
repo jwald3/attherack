@@ -21,13 +21,13 @@ At The Rack allows you to track fitness data in a single application equipped wi
 
 | Tab | What it does |
 | --- | --- |
-| **Coach** (home) | Chat with Claude, organized into conversations like the Claude app: a sidebar of threads, automatic titles, rename and delete. The coach reads and writes all of your data through tools, so answers use real numbers. Attach, paste or drop photos (up to 4 per message) to ask about a machine you don't recognize, a physique check-in, a meal, or a screenshot of a plan. |
-| **Training** | Log sets (exercise, weight, reps, RPE); they're grouped into dated workouts. Search a library of ~870 exercises by name, muscle or equipment, or add your own (the **AI** button fills in muscles and equipment from the name). Click any exercise for its history: best set, estimated 1RM, progression chart, every set by date. |
-| **Cardio** | Log sessions (type, minutes, miles) with weekly and 30-day totals. Click a type (e.g. Running) for its history: distance, time, pace and speed per session, plus best and average pace and a pace chart. |
-| **Bodyweight** | Weigh-ins with a trend chart and start/current/change/min/max stats. |
-| **Progress** | Track body measurements (waist, chest, hips, neck, arms, thighs, calves) with a per-site trend chart, and keep a dated gallery of progress photos. |
-| **Diet** | Log what you ate. A name is enough; notes (portion, brand) and macros (calories, protein, carbs, fat) are optional. Days show macro totals when you've entered them. |
-| **Supplements** | Log doses. Everything you've taken before becomes a one-click button for today, with a 30-day consistency bar for each. |
+| **Coach** (home) | A specialized harness around Claude with access to all the app’s data and functionality. You can use the Coach to ask about data you’ve provided and even use it to enter new data using conversational language. The Coach has full read and write permissions, meaning you can use this as your one-stop interface for interacting with At The Rack. Ask it questions, and you’ll be surprised how much it knows. |
+| **Training** | Manually log sets of exercises using a library of hundreds of different options. You can add context to the set, giving the Coach more information to use in subsequent conversations.  |
+| **Cardio** | Manually track cardio sessions and see history by each exercise type.  |
+| **Bodyweight** | Monitor periodic weigh-ins using a convenient chart. |
+| **Progress** | Track gym progress using body-specific measurements and photos. |
+| **Diet** | Log what you eat and optionally add details like which meal it was part of and its estimated macros.  |
+| **Supplements** | Log any supplements taken as part of your regimen.  |
 
 ## Quick start
 
