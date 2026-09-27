@@ -437,24 +437,28 @@ tr:hover .s-del .btn { opacity: 1; }
 .facets[open] > summary { color: var(--text-dim); }
 .facet-group { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
 .facet-label { flex: none; width: 62px; font-size: 11px; color: var(--text-faint); font-family: var(--mono); padding-top: 4px; }
-.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+/* Suggestion filters read as plain clickable words, not filled pills: no
+   border or resting fill, just the term and a dim count. A faint pill-shaped
+   background appears only on hover, and the active pick is marked by the
+   accent color rather than a tinted capsule. */
 .chip.pick {
   cursor: pointer;
-  border: 1px solid var(--border-soft);
-  background: var(--bg-elev);
+  border: none;
+  background: none;
   color: var(--text-dim);
-  font-size: 11.5px;
-  padding: 3px 9px;
+  font-size: 12px;
+  padding: 2px 6px;
   border-radius: 20px;
   font-family: var(--mono);
   line-height: 1.3;
-  transition: background .1s, border-color .1s, color .1s;
+  transition: background .1s, color .1s;
 }
-.chip.pick:hover { background: #232b36; color: var(--text); }
-.chip.pick.muscle.active { background: #22303a; border-color: #3f7488; color: #a8dced; }
-.chip.pick.equip.active { background: #2e2636; border-color: #7a5a92; color: #d8bced; }
+.chip.pick:hover { background: var(--bg-elev); color: var(--text); }
+.chip.pick.active { color: var(--accent); }
+.chip.pick.active:hover { background: rgba(240, 96, 58, 0.1); }
 .chip-n { color: var(--text-faint); font-size: 10px; }
-.chip.pick.active .chip-n { color: inherit; opacity: 0.7; }
+.chip.pick.active .chip-n { color: inherit; opacity: 0.65; }
 .facet-clear { color: var(--accent); margin-top: 2px; }
 
 .ex-results { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
@@ -467,7 +471,9 @@ tr:hover .s-del .btn { opacity: 1; }
 }
 .ex-name { font-weight: 600; margin-bottom: 6px; padding-right: 48px; }
 .ex-meta { display: flex; flex-wrap: wrap; gap: 4px; }
-.chip {
+/* Base pill styling for the tags on exercise result cards. The :not(.pick)
+   keeps it off the suggestion filters, which are styled as flat text above. */
+.chip:not(.pick) {
   font-size: 11px;
   padding: 1px 7px;
   border-radius: 20px;
@@ -475,9 +481,9 @@ tr:hover .s-del .btn { opacity: 1; }
   background: #232b36;
   color: var(--text-dim);
 }
-.chip.muscle { background: #22303a; color: #7fc4d8; }
-.chip.equip { background: #2e2636; color: #c39fd8; }
-.chip.level { background: #2c2a20; color: #d1bd6e; }
+.chip.muscle:not(.pick) { background: #22303a; color: #7fc4d8; }
+.chip.equip:not(.pick) { background: #2e2636; color: #c39fd8; }
+.chip.level:not(.pick) { background: #2c2a20; color: #d1bd6e; }
 .ex-add { position: absolute; top: 10px; right: 10px; }
 .ex-card.custom { border-color: var(--accent-dim); }
 .chip.custom-tag { background: #3a2420; color: #e0916f; }
