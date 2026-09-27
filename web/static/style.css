@@ -335,15 +335,15 @@ table.sets td { padding: 2px 0; vertical-align: middle; }
 table.sets tr { border-radius: 5px; }
 table.sets tr:hover { background: var(--bg-elev); }
 .s-ex { color: var(--text); }
-/* Load sits next to the set number; the delete cell absorbs the slack and
-   pins itself to the right edge, so a set reads as one compact line. */
-.s-load { text-align: left; font-family: var(--mono); color: var(--text); }
+/* The load cell takes the row's slack so a note has room to sit on one line;
+   the delete cell shrinks to its icon and is pushed to the right edge. */
+.s-load { text-align: left; font-family: var(--mono); color: var(--text); width: 100%; }
 .s-figs { white-space: nowrap; }
 .s-rpe { color: var(--text-faint); }
 /* A per-set note trails the load in dim italic sans, set off from the mono
-   figures; it wraps rather than forcing the row wide. */
+   figures. It only wraps when it's genuinely wider than the column. */
 .s-note { font-family: var(--sans); font-style: italic; font-size: 12px; color: var(--text-dim); margin-left: 8px; }
-.s-del { width: 100%; text-align: right; }
+.s-del { width: 1%; white-space: nowrap; text-align: right; }
 .s-del .btn { opacity: 0; }
 tr:hover .s-del .btn { opacity: 1; }
 
