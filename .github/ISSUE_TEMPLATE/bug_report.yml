@@ -1,0 +1,71 @@
+name: Bug report
+description: Something isn't working the way you expect
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! The more of this you fill in, the faster it can be fixed.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        I clicked "Log set" on the Training tab and ...
+        I expected ...
+        Instead ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the app with `go run . -seed-demo -db demo.db`
+        2. Open the Coach tab
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: how-running
+    attributes:
+      label: How are you running it?
+      options:
+        - go run .
+        - a built binary (go build)
+        - Docker / docker compose
+        - other (describe below)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. macOS 15, Ubuntu 24.04, Windows 11
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD`, or the release you're on.
+    validations:
+      required: false
+  - type: dropdown
+    id: coach
+    attributes:
+      label: Does it involve the AI coach?
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste any server output or attach a screenshot. Redact your API key if it appears.
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/jwald3/attherack/discussions
+    about: Ask a question or discuss an idea before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/jwald3/attherack/security/advisories/new
+    about: Report a vulnerability privately instead of opening a public issue.
