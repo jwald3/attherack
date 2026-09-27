@@ -1,13 +1,6 @@
 # At The Rack
 
-A lightweight, self-hosted training tracker with a built-in AI coach. It
-tracks lifting, cardio, bodyweight, diet and supplements. Talk to the coach
-the way you'd text a friend ("did 3x5 squats at 225", "had eggs and toast for
-breakfast", "how's my bench trending?") and it logs things for you and answers
-from your real history.
-
-One Go binary: no Node, no frontend build step, no external services except the
-optional Anthropic API. Data lives in a local SQLite file.
+At The Rack allows you to track fitness data in a single application equipped with an AI chatbot that can readily query any of the information you’ve given it to provide specific, tailored advice and feedback. The app uses your training, diet, supplements, and progress data as context for all conversations, making it a powerful wrapper built around the latest Claude model. 
 
 ![The Coach tab: a conversation sidebar and a chat with the AI coach](docs/screenshots/coach.png)
 
