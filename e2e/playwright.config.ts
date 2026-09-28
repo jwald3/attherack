@@ -37,41 +37,37 @@ export default defineConfig({
       env: { FAKE_CLAUDE_PORT: "19911" },
     },
     {
-      command:
-        "cd .. && go build -o e2e/.bin/attherack . && rm -f e2e/.bin/e2e.db e2e/.bin/e2e.db-shm e2e/.bin/e2e.db-wal && exec e2e/.bin/attherack",
+      // run-server.mjs builds the binary, clears the db and runs it — one
+      // cross-platform launcher instead of a bash-only shell chain.
+      command: "node run-server.mjs attherack e2e.db",
       url: APP_URL + "/",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
         ADDR: "127.0.0.1:18181",
-        DB_PATH: "e2e/.bin/e2e.db",
         ANTHROPIC_API_KEY: "sk-ant-e2e",
         ANTHROPIC_BASE_URL: FAKE_URL,
       },
     },
     {
-      command:
-        "cd .. && go build -o e2e/.bin/attherack-nokey . && rm -f e2e/.bin/nokey.db e2e/.bin/nokey.db-shm e2e/.bin/nokey.db-wal && exec e2e/.bin/attherack-nokey",
+      command: "node run-server.mjs attherack-nokey nokey.db",
       url: NOKEY_URL + "/",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
         ADDR: "127.0.0.1:18182",
-        DB_PATH: "e2e/.bin/nokey.db",
         // Set but empty, so neither the shell's key nor a local .env enables it.
         ANTHROPIC_API_KEY: "",
         ANTHROPIC_BASE_URL: FAKE_URL,
       },
     },
     {
-      command:
-        "cd .. && go build -o e2e/.bin/attherack-demo . && rm -f e2e/.bin/demo.db e2e/.bin/demo.db-shm e2e/.bin/demo.db-wal && exec e2e/.bin/attherack-demo -seed-demo",
+      command: "node run-server.mjs attherack-demo demo.db -seed-demo",
       url: DEMO_URL + "/",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
         ADDR: "127.0.0.1:18183",
-        DB_PATH: "e2e/.bin/demo.db",
         ANTHROPIC_API_KEY: "sk-ant-e2e",
         ANTHROPIC_BASE_URL: FAKE_URL,
       },

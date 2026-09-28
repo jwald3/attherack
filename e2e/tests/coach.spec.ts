@@ -130,14 +130,31 @@ test("a failing tool is reported back to the model, not to the user as a crash",
   expect(reqs[1].messages.at(-1)!.content[0]).toMatchObject({ type: "tool_result", is_error: true });
 });
 
-test("an API error shows in the reply bubble and the chat keeps working", async ({ page }) => {
+test("a failed reply shows a clean error with Retry, and the chat keeps working", async ({ page }) => {
   await send(page, "<<error 529 Overloaded>>");
-  await expect(reply(page)).toHaveText("Something went wrong talking to Claude: claude api (529): Overloaded");
+  const errored = page.locator(".bubble.assistant.error").last();
+  await expect(errored).toContainText("That didn't go through.");
+  await expect(errored.locator(".retry")).toBeVisible();
   // No AI title for a failed first exchange; the thread keeps its opening words.
   await expect(page.locator(".thread.active .thread-link")).toHaveText("<<error 529 Overloaded>>");
 
   await send(page, "try again");
   await expect(reply(page)).toContainText("You said: try again");
+});
+
+test("Retry re-runs the failed turn in place", async ({ page }) => {
+  await send(page, "<<error 500 boom>>");
+  const errored = page.locator(".bubble.assistant.error").last();
+  await expect(errored.locator(".retry")).toBeVisible();
+
+  // Clicking Retry flips the same bubble back to a pending placeholder that polls.
+  await errored.locator(".retry").click();
+  await expect(page.locator(".bubble.assistant.pending")).toBeVisible();
+  // The stored turn still carries the directive, so it errors again — proving the
+  // retry re-ran the original turn in place rather than sending something new.
+  await expect(page.locator(".bubble.assistant.error .retry")).toBeVisible();
+  // Only ever one assistant bubble for this turn: retry regenerates, not appends.
+  await expect(page.locator("#chat-col .bubble.assistant")).toHaveCount(1);
 });
 
 test("a reply still arrives after reloading mid-generation", async ({ page }) => {
