@@ -196,6 +196,13 @@ plain JS.
 Database files (`*.db`, backups, WAL files) are git-ignored because they hold
 your personal data and possibly your API key. Don't commit them.
 
+## Contributing
+
+Bug reports, feature ideas, and pull requests are welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for how to get set up and the checks to run
+before opening a PR. Notable changes are recorded in
+[`CHANGELOG.md`](CHANGELOG.md).
+
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Exercise data comes from
