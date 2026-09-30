@@ -30,18 +30,44 @@
       </div>
     {{end}}
 
-    <div class="drawer-history">
-      {{range .Days}}
-        <div class="dh-day">
-          <div class="dh-date">{{.Date}}</div>
-          <div class="dh-sets">
-            {{range .Sets}}
-              <span class="dh-set">{{printf "%g" .Weight}}×{{.Reps}}{{if .RPE}} <span class="dh-rpe">@{{.RPE}}</span>{{end}}</span>
-            {{end}}
+    <h3 class="dh-heading">Progress by session</h3>
+    <table class="dh-table">
+      <thead>
+        <tr><th>Date</th><th>Top set</th><th class="dh-delta-h">Δ</th></tr>
+      </thead>
+      <tbody>
+        {{range .Days}}
+          <tr>
+            <td class="dh-td-date">{{.Date}}</td>
+            <td class="dh-td-top">{{printf "%g" .TopSet.Weight}}<span class="dh-x">×</span>{{.TopSet.Reps}}</td>
+            <td class="dh-td-delta">
+              {{if .HasPrev}}
+                {{if gt .Delta 0.0}}<span class="up-good">↑ {{printf "%g" .Delta}}</span>
+                {{else if lt .Delta 0.0}}<span class="down-bad">↓ {{printf "%g" (abs .Delta)}}</span>
+                {{else}}<span class="dh-flat">—</span>{{end}}
+              {{end}}
+            </td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+
+    <details class="dh-all">
+      <summary>All sets by session</summary>
+      <div class="drawer-history">
+        {{range .Days}}
+          {{$top := .TopSet}}
+          <div class="dh-day">
+            <div class="dh-date">{{.Date}}</div>
+            <div class="dh-sets">
+              {{range .Sets}}
+                <span class="dh-set{{if eq .ID $top.ID}} top{{end}}">{{printf "%g" .Weight}}<span class="dh-x">×</span>{{.Reps}}{{if .RPE}} <span class="dh-rpe">@{{.RPE}}</span>{{end}}</span>
+              {{end}}
+            </div>
           </div>
-        </div>
-      {{end}}
-    </div>
+        {{end}}
+      </div>
+    </details>
   {{else}}
     <div class="drawer-empty">
       No sets logged for {{.Name}} yet.

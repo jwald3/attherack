@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -61,6 +62,7 @@ func templateFuncs() template.FuncMap {
 		"icon":     icon,
 		"imgs":     func(imgs []store.ChatImage) template.HTML { return template.HTML(imagesHTML(imgs)) },
 		"add":      func(a, b int) int { return a + b },
+		"abs":      math.Abs,
 		"assetver": func() string { return assetVersion },
 		"errorbubble": func(id int64) template.HTML {
 			return template.HTML(errorBubbleHTML(strconv.FormatInt(id, 10)))

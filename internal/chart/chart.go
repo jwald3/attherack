@@ -111,6 +111,13 @@ func BuildFmt(in []Point, yLabel func(float64) string) Data {
 	}
 	fmt.Fprintf(&area, " L%.1f %.1f Z", xAt(len(pts)-1), padT+plotH)
 
+	// A dot at every session so each data point is visible (not just a bare line
+	// between two far-apart sessions).
+	var dots strings.Builder
+	for i, p := range pts {
+		fmt.Fprintf(&dots, `<circle cx="%.1f" cy="%.1f" r="2.5" class="pt"/>`, xAt(i), yAt(p.Value))
+	}
+
 	// Gridlines + labels at min, mid, max of the actual data.
 	grid := func(v float64) string {
 		y := yAt(v)
@@ -127,12 +134,13 @@ func BuildFmt(in []Point, yLabel func(float64) string) Data {
 	lastDate := pts[len(pts)-1].Date
 
 	var b strings.Builder
-	fmt.Fprintf(&b, `<svg viewBox="0 0 %.0f %.0f" class="bw-svg" preserveAspectRatio="none" role="img" aria-label="Bodyweight over time">`, w, h)
+	fmt.Fprintf(&b, `<svg viewBox="0 0 %.0f %.0f" class="bw-svg" preserveAspectRatio="none" role="img" aria-label="Value over time">`, w, h)
 	b.WriteString(grid(maxW))
 	b.WriteString(grid(mid))
 	b.WriteString(grid(minW))
 	fmt.Fprintf(&b, `<path d="%s" class="area"/>`, area.String())
 	fmt.Fprintf(&b, `<path d="%s" class="line"/>`, line.String())
+	b.WriteString(dots.String())
 	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="3.5" class="dot"/>`, lastX, lastY)
 	// X-axis end labels (first & last date).
 	fmt.Fprintf(&b, `<text x="%.1f" y="%.0f" class="axis-x start">%s</text>`, padL, h-8, firstDate)

@@ -180,10 +180,15 @@ type exerciseDetailData struct {
 	Days       []exerciseDay // grouped, newest-first
 }
 
-// exerciseDay is one date's sets for an exercise.
+// exerciseDay is one date's sets for an exercise, plus a session summary used
+// by the progress table: its heaviest set and how that weight moved since the
+// previous (older) session.
 type exerciseDay struct {
-	Date string
-	Sets []store.Set
+	Date    string
+	Sets    []store.Set
+	TopSet  store.Set // heaviest set of the day (tie broken on reps)
+	Delta   float64   // top-set weight change vs. the previous session; 0 for the first
+	HasPrev bool      // false for the earliest session (no delta to show)
 }
 
 func (app *App) exerciseDetailData(name string) exerciseDetailData {
@@ -214,6 +219,23 @@ func (app *App) exerciseDetailData(name string) exerciseDetailData {
 	if d.BestWeight > 0 && d.BestReps > 0 {
 		// Epley 1RM estimate.
 		d.BestE1RM = d.BestWeight * (1 + float64(d.BestReps)/30.0)
+	}
+
+	// Per-session summary: first each day's heaviest set...
+	for i := range d.Days {
+		for _, st := range d.Days[i].Sets {
+			if st.Weight > d.Days[i].TopSet.Weight || (st.Weight == d.Days[i].TopSet.Weight && st.Reps > d.Days[i].TopSet.Reps) {
+				d.Days[i].TopSet = st
+			}
+		}
+	}
+	// ...then the change vs. the previous (older) session. Days is newest-first,
+	// so the older session is the next index.
+	for i := range d.Days {
+		if i+1 < len(d.Days) {
+			d.Days[i].HasPrev = true
+			d.Days[i].Delta = d.Days[i].TopSet.Weight - d.Days[i+1].TopSet.Weight
+		}
 	}
 	if len(hist) > 0 {
 		d.LastDate = hist[0].Date
