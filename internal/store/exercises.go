@@ -46,6 +46,27 @@ FROM custom_exercises ORDER BY name ASC`)
 	return out, rows.Err()
 }
 
+// DistinctLoggedExercises returns the distinct exercise names that appear in
+// the logged sets, so exercises that exist only in a user's history (e.g. from
+// a CSV import with names the built-in library doesn't have) can still be made
+// searchable.
+func (s *Store) DistinctLoggedExercises() ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT exercise FROM sets WHERE exercise <> '' ORDER BY exercise`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
+}
+
 // AddCustomExercise inserts a user-defined exercise and returns the stored
 // value. Returns ErrExerciseExists if the generated id already exists.
 func (s *Store) AddCustomExercise(name, equipment, level, category string, primary, secondary []string) (exercise.Exercise, error) {

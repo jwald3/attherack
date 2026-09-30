@@ -76,7 +76,32 @@ func main() {
 		log.Fatalf("load custom exercises: %v", err)
 	}
 	lib.Add(custom...)
-	log.Printf("loaded %d exercises (%d built-in, %d custom)", lib.Count(), lib.Count()-len(custom), len(custom))
+	builtinCount := lib.Count() - len(custom)
+
+	// Make exercises that exist only in the logged history searchable too. An
+	// import can log sets under a name the built-in library doesn't have; without
+	// this, those exercises can't be found in the library even though there's a
+	// history for them. They join as bare names (no muscle/equipment metadata).
+	logged, err := st.DistinctLoggedExercises()
+	if err != nil {
+		log.Fatalf("load logged exercises: %v", err)
+	}
+	var loggedOnly []exercise.Exercise
+	for _, name := range logged {
+		if _, known := lib.ByName(name); known {
+			continue
+		}
+		loggedOnly = append(loggedOnly, exercise.Exercise{
+			Name:     name,
+			ID:       exercise.CustomID(name),
+			Level:    "intermediate",
+			Category: "strength",
+			Custom:   true,
+		})
+	}
+	lib.Add(loggedOnly...)
+	log.Printf("loaded %d exercises (%d built-in, %d custom, %d from history)",
+		lib.Count(), builtinCount, len(custom), len(loggedOnly))
 
 	app, err := server.New(st, lib, cfg.AnthropicBaseURL)
 	if err != nil {
