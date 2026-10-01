@@ -247,7 +247,8 @@ select option { background: var(--bg-panel); color: var(--text); }
 
 /* ---- cardio tab ---- */
 .cardio-form { display: flex; gap: 8px; flex-wrap: wrap; }
-.cardio-form input[type="text"] { width: 150px; }
+.cardio-form input[name="type"] { width: 150px; }
+.cardio-form input[name="duration"] { width: 108px; }
 .cardio-form input[type="number"] { width: 78px; }
 .cardio-form input[type="date"] { width: 148px; }
 .stat-unit { font-size: 11px; color: var(--text-faint); margin-left: 2px; font-weight: 400; }

@@ -6,7 +6,7 @@
           <h2 class="panel-title">Cardio</h2>
           <form class="cardio-form" hx-post="/cardio" hx-target="#cardio-content" hx-swap="innerHTML">
             <input type="text" name="type" placeholder="Cardio type" list="cardio-types" autocomplete="off" required>
-            <input type="number" name="minutes" placeholder="Min" step="any" inputmode="decimal">
+            <input type="text" name="duration" placeholder="Time (mm:ss)" inputmode="numeric" pattern="[0-9:.]*" autocomplete="off">
             <input type="number" name="miles" placeholder="Miles" step="any" inputmode="decimal">
             <input type="date" name="date" aria-label="Date" value="{{.Today}}">
             <button type="submit" class="btn primary small">Log</button>

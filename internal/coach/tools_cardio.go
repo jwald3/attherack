@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jwald3/attherack/internal/dates"
+	"github.com/jwald3/attherack/internal/store"
 )
 
 // Tools for cardio sessions.
@@ -13,10 +14,11 @@ import (
 var logCardioTool = tool{
 	def: toolDef{
 		Name:        "log_cardio",
-		Description: "Log a cardio session (e.g. walking, elliptical, running). Provide any of duration and distance.",
+		Description: "Log a cardio session (e.g. walking, elliptical, running). Provide any of duration and distance. Durations keep seconds — pass a run time like '27:08' in duration, not a rounded minute count.",
 		InputSchema: object(map[string]any{
 			"type":             prop("string", "Cardio type, e.g. 'Elliptical', 'Walking'"),
-			"duration_minutes": prop("number", "Duration in minutes"),
+			"duration":         prop("string", "Duration as mm:ss or h:mm:ss (e.g. '27:08'), preserving seconds. Preferred over duration_minutes."),
+			"duration_minutes": prop("number", "Duration in minutes (use only when you have no seconds; 'duration' is preferred)."),
 			"distance_miles":   prop("number", "Distance in miles"),
 			"date":             dateProp(),
 		}, "type"),
@@ -24,6 +26,7 @@ var logCardioTool = tool{
 	run: func(a *Agent, input json.RawMessage) (string, bool, error) {
 		var in struct {
 			Type            string  `json:"type"`
+			Duration        string  `json:"duration"`
 			DurationMinutes float64 `json:"duration_minutes"`
 			DistanceMiles   float64 `json:"distance_miles"`
 			Date            string  `json:"date"`
@@ -34,11 +37,16 @@ var logCardioTool = tool{
 		if in.Date == "" {
 			in.Date = dates.Today()
 		}
-		c, err := a.store.LogCardio(in.Date, in.Type, int(in.DurationMinutes*60), in.DistanceMiles)
+		// Prefer the seconds-precise duration string; fall back to minutes.
+		seconds := store.ParseDuration(in.Duration)
+		if seconds == 0 && in.DurationMinutes > 0 {
+			seconds = int(in.DurationMinutes*60 + 0.5)
+		}
+		c, err := a.store.LogCardio(in.Date, in.Type, seconds, in.DistanceMiles)
 		if err != nil {
 			return "", false, err
 		}
-		return fmt.Sprintf("Logged cardio: %s on %s (%.0f min, %.2f mi).", c.Type, c.Date, in.DurationMinutes, in.DistanceMiles), true, nil
+		return fmt.Sprintf("Logged cardio: %s on %s (%s, %.2f mi).", c.Type, c.Date, fmtClockSec(c.DurationSeconds), in.DistanceMiles), true, nil
 	},
 }
 
@@ -73,7 +81,11 @@ var getCardioHistoryTool = tool{
 				fmt.Fprintf(&sb, " %.2fmi", c.DistanceMiles)
 			}
 			if c.DurationSeconds > 0 {
-				fmt.Fprintf(&sb, " %dmin", c.DurationSeconds/60)
+				// Full mm:ss, so the coach sees real times (e.g. 27:08, not 27min).
+				fmt.Fprintf(&sb, " %s", fmtClockSec(c.DurationSeconds))
+				if c.DistanceMiles > 0 {
+					fmt.Fprintf(&sb, " (%s/mi)", fmtClockSec(int(float64(c.DurationSeconds)/c.DistanceMiles+0.5)))
+				}
 			}
 			sb.WriteString("\n")
 		}

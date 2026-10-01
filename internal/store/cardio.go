@@ -1,6 +1,42 @@
 package store
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
+
+// ParseDuration turns a human duration into whole seconds. It accepts clock
+// forms ("27:08" = 27m08s, "1:05:30" = 1h05m30s) and a plain or decimal number
+// of minutes ("27" = 27m, "27.5" = 27m30s). Returns 0 for empty/unparseable
+// input, so a blank field logs no duration. Minutes and seconds beyond a clock's
+// natural range still add up (e.g. "0:90" = 90 seconds).
+func ParseDuration(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	if strings.Contains(s, ":") {
+		parts := strings.Split(s, ":")
+		total := 0.0
+		for _, p := range parts {
+			v, err := strconv.ParseFloat(strings.TrimSpace(p), 64)
+			if err != nil {
+				return 0
+			}
+			total = total*60 + v
+		}
+		if total < 0 {
+			return 0
+		}
+		return int(total + 0.5)
+	}
+	// A bare number is minutes (decimals allowed, so "27.5" is 27m30s).
+	mins, err := strconv.ParseFloat(s, 64)
+	if err != nil || mins < 0 {
+		return 0
+	}
+	return int(mins*60 + 0.5)
+}
 
 // CardioSession is a single logged cardio activity.
 type CardioSession struct {

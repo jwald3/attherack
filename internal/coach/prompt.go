@@ -93,3 +93,16 @@ func fmtRPE(rpe *float64) string {
 	}
 	return fmt.Sprintf(" @RPE%.1f", *rpe)
 }
+
+// fmtClockSec renders a seconds count as "m:ss" or "h:mm:ss" so the coach reads
+// and reports real cardio times, not minutes rounded down.
+func fmtClockSec(seconds int) string {
+	if seconds <= 0 {
+		return "0:00"
+	}
+	h, m, s := seconds/3600, (seconds%3600)/60, seconds%60
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%d:%02d", m, s)
+}

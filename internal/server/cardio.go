@@ -61,10 +61,11 @@ func (app *App) handleAddCardio(w http.ResponseWriter, r *http.Request) {
 		app.cardioContent(w)
 		return
 	}
-	// Duration accepted in minutes from the form; stored as seconds.
-	minutes, _ := strconv.ParseFloat(strings.TrimSpace(r.FormValue("minutes")), 64)
+	// Duration accepted as MM:SS (or plain minutes) from the form; stored as
+	// seconds, so run times keep their seconds instead of rounding to the minute.
+	seconds := store.ParseDuration(r.FormValue("duration"))
 	miles, _ := strconv.ParseFloat(strings.TrimSpace(r.FormValue("miles")), 64)
-	if _, err := app.store.LogCardio(formDate(r), ctype, int(minutes*60), miles); err != nil {
+	if _, err := app.store.LogCardio(formDate(r), ctype, seconds, miles); err != nil {
 		serverError(w, err)
 		return
 	}
